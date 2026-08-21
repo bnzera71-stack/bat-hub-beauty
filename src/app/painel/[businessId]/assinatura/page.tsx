@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getAppSettings } from "@/lib/settings";
+import { PixCopyBox } from "@/components/pix-copy-box";
 
 function formatBRL(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -77,18 +78,17 @@ export default async function AssinaturaPage({
       </div>
 
       {status !== "ACTIVE" && settings.supportPixKey && (
-        <div className="space-y-3 rounded-xl border border-zinc-200 bg-white p-5">
-          <h2 className="text-sm font-semibold text-zinc-900">Como ativar</h2>
-          <ol className="list-decimal space-y-2 pl-4 text-sm text-zinc-700">
-            <li>
-              Faça um PIX de {priceLabel} pra chave: <br />
-              <code className="mt-1 inline-block rounded bg-zinc-100 px-2 py-1 font-medium">
-                {settings.supportPixKey}
-              </code>
-            </li>
-            <li>Manda o comprovante pelo WhatsApp abaixo.</li>
-            <li>A gente libera seu acesso em até algumas horas.</li>
-          </ol>
+        <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5">
+          <div>
+            <h2 className="text-sm font-semibold text-zinc-900">Como ativar</h2>
+            <p className="mt-1 text-sm text-zinc-600">
+              Abra o app do seu banco → Pix → Pagar com chave → cola a chave copiada → valor de{" "}
+              <strong>{priceLabel}</strong>.
+            </p>
+          </div>
+
+          <PixCopyBox pixKey={settings.supportPixKey} />
+
           {settings.supportWhatsapp && (
             <a
               href={formatWhatsappLink(
@@ -97,11 +97,12 @@ export default async function AssinaturaPage({
               )}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full rounded-lg bg-accent px-4 py-2.5 text-center font-medium text-accent-foreground hover:opacity-90"
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-3 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             >
-              Enviar comprovante no WhatsApp
+              Já pagou? Envie o comprovante no WhatsApp
             </a>
           )}
+          <p className="text-center text-xs text-zinc-400">A gente libera seu acesso em até algumas horas.</p>
         </div>
       )}
     </div>
