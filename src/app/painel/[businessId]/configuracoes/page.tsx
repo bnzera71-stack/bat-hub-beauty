@@ -74,9 +74,11 @@ export default function ConfiguracoesPage({
   const [savingSlug, setSavingSlug] = useState(false);
 
   const [professionalName, setProfessionalName] = useState("");
+  const [professionalPhotoUrl, setProfessionalPhotoUrl] = useState<string | null>(null);
   const [savingProfessional, setSavingProfessional] = useState(false);
 
   const [serviceName, setServiceName] = useState("");
+  const [servicePhotoUrl, setServicePhotoUrl] = useState<string | null>(null);
   const [serviceDescription, setServiceDescription] = useState("");
   const [serviceCategoryId, setServiceCategoryId] = useState("");
   const [servicePrice, setServicePrice] = useState("");
@@ -247,9 +249,10 @@ export default function ConfiguracoesPage({
     await fetch("/api/painel/professionals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessId, name: professionalName, specialties: [] }),
+      body: JSON.stringify({ businessId, name: professionalName, photoUrl: professionalPhotoUrl ?? undefined, specialties: [] }),
     });
     setProfessionalName("");
+    setProfessionalPhotoUrl(null);
     await load();
     setSavingProfessional(false);
   }
@@ -265,6 +268,7 @@ export default function ConfiguracoesPage({
         businessId,
         name: serviceName,
         description: serviceDescription || undefined,
+        photoUrl: servicePhotoUrl ?? undefined,
         categoryId: serviceCategoryId || undefined,
         priceCents: Math.round(parseFloat(servicePrice.replace(",", ".")) * 100),
         durationMin: parseInt(serviceDuration, 10),
@@ -272,6 +276,7 @@ export default function ConfiguracoesPage({
       }),
     });
     setServiceName("");
+    setServicePhotoUrl(null);
     setServiceDescription("");
     setServiceCategoryId("");
     setServicePrice("");
@@ -706,7 +711,13 @@ export default function ConfiguracoesPage({
         <h2 className="text-sm font-semibold text-zinc-900">Profissionais</h2>
         <p className="text-xs text-zinc-500">Quem atende no seu salão — aparece na hora de escolher na página pública.</p>
 
-        <form onSubmit={addProfessional} className="flex gap-2">
+        <form onSubmit={addProfessional} className="flex items-center gap-2">
+          <ImageUploader
+            businessId={businessId}
+            currentUrl={professionalPhotoUrl}
+            onUploaded={(url) => setProfessionalPhotoUrl(url)}
+            shape="square"
+          />
           <input
             value={professionalName}
             onChange={(e) => setProfessionalName(e.target.value)}
@@ -814,19 +825,29 @@ export default function ConfiguracoesPage({
         <p className="text-xs text-zinc-500">O que o seu salão oferece, com preço e duração.</p>
 
         <form onSubmit={addService} className="space-y-3">
-          <input
-            value={serviceName}
-            onChange={(e) => setServiceName(e.target.value)}
-            placeholder="Nome do serviço"
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-          />
-          <textarea
-            value={serviceDescription}
-            onChange={(e) => setServiceDescription(e.target.value)}
-            placeholder="Descrição (opcional) — aparece pro cliente na hora de agendar"
-            rows={2}
-            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-          />
+          <div className="flex gap-3">
+            <ImageUploader
+              businessId={businessId}
+              currentUrl={servicePhotoUrl}
+              onUploaded={(url) => setServicePhotoUrl(url)}
+              shape="square"
+            />
+            <div className="min-w-0 flex-1 space-y-3">
+              <input
+                value={serviceName}
+                onChange={(e) => setServiceName(e.target.value)}
+                placeholder="Nome do serviço"
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+              <textarea
+                value={serviceDescription}
+                onChange={(e) => setServiceDescription(e.target.value)}
+                placeholder="Descrição (opcional) — aparece pro cliente na hora de agendar"
+                rows={2}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+            </div>
+          </div>
           <div className="flex gap-2">
             <div className="relative w-1/2">
               <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">R$</span>
