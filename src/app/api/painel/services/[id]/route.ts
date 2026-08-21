@@ -8,7 +8,8 @@ import type { Prisma } from "@/generated/prisma";
 const updateSchema = z.object({
   businessId: z.string().min(1),
   name: z.string().min(2).max(120).optional(),
-  description: z.string().max(500).optional(),
+  description: z.string().max(500).nullable().optional(),
+  photoUrl: z.string().url().nullable().optional(),
   categoryId: z.string().nullable().optional(),
   priceCents: z.number().int().nonnegative().optional(),
   durationMin: z.number().int().positive().max(600).optional(),

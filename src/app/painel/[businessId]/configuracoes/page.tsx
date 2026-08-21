@@ -8,19 +8,28 @@ type Business = {
   id: string;
   slug: string;
   name: string;
+  description: string | null;
+  address: string | null;
   confirmationMode: "AUTOMATIC" | "MANUAL";
   primaryColor: string;
   whatsapp: string | null;
   instagram: string | null;
   logoUrl: string | null;
   coverUrl: string | null;
+  minLeadMinutes: number;
+  maxLeadDays: number;
+  cancellationHours: number;
 };
 
 type BusinessHour = { weekday: number; startTime: string; endTime: string };
 type Professional = { id: string; name: string; active: boolean; specialties: string[]; photoUrl: string | null };
+type ServiceCategory = { id: string; name: string; order: number };
 type Service = {
   id: string;
   name: string;
+  description: string | null;
+  photoUrl: string | null;
+  categoryId: string | null;
   priceCents: number;
   durationMin: number;
   active: boolean;
@@ -55,6 +64,7 @@ export default function ConfiguracoesPage({
   );
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [services, setServices] = useState<Service[]>([]);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -67,10 +77,27 @@ export default function ConfiguracoesPage({
   const [savingProfessional, setSavingProfessional] = useState(false);
 
   const [serviceName, setServiceName] = useState("");
+  const [serviceDescription, setServiceDescription] = useState("");
+  const [serviceCategoryId, setServiceCategoryId] = useState("");
   const [servicePrice, setServicePrice] = useState("");
   const [serviceDuration, setServiceDuration] = useState("60");
   const [serviceProfessionalIds, setServiceProfessionalIds] = useState<string[]>([]);
   const [savingService, setSavingService] = useState(false);
+
+  const [categoryName, setCategoryName] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState("");
+
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [editServiceName, setEditServiceName] = useState("");
+  const [editServiceDescription, setEditServiceDescription] = useState("");
+  const [editServiceCategoryId, setEditServiceCategoryId] = useState("");
+  const [editServicePrice, setEditServicePrice] = useState("");
+  const [editServiceDuration, setEditServiceDuration] = useState("");
+  const [editServiceProfessionalIds, setEditServiceProfessionalIds] = useState<string[]>([]);
+  const [editServicePhotoUrl, setEditServicePhotoUrl] = useState<string | null>(null);
+  const [savingServiceEdit, setSavingServiceEdit] = useState(false);
 
   const [blocks, setBlocks] = useState<BlockedPeriod[]>([]);
   const [blockProfessionalId, setBlockProfessionalId] = useState("");
@@ -97,23 +124,26 @@ export default function ConfiguracoesPage({
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [businessRes, hoursRes, professionalsRes, servicesRes, blocksRes] = await Promise.all([
+    const [businessRes, hoursRes, professionalsRes, servicesRes, blocksRes, categoriesRes] = await Promise.all([
       fetch(`/api/painel/business?businessId=${businessId}`),
       fetch(`/api/painel/business-hours?businessId=${businessId}`),
       fetch(`/api/painel/professionals?businessId=${businessId}`),
       fetch(`/api/painel/services?businessId=${businessId}`),
       fetch(`/api/painel/blocked-periods?businessId=${businessId}`),
+      fetch(`/api/painel/service-categories?businessId=${businessId}`),
     ]);
     const businessData = await businessRes.json();
     const hoursData = await hoursRes.json();
     const professionalsData = await professionalsRes.json();
     const servicesData = await servicesRes.json();
     const blocksData = await blocksRes.json();
+    const categoriesData = await categoriesRes.json();
 
     setBusiness(businessData.business);
     setProfessionals(professionalsData.professionals ?? []);
     setServices(servicesData.services ?? []);
     setBlocks(blocksData.blocks ?? []);
+    setCategories(categoriesData.categories ?? []);
 
     const map: Record<number, { open: boolean; startTime: string; endTime: string }> = {};
     for (let i = 0; i < 7; i++) map[i] = { open: false, startTime: "09:00", endTime: "18:00" };
@@ -137,10 +167,15 @@ export default function ConfiguracoesPage({
       body: JSON.stringify({
         businessId,
         name: business.name,
+        description: business.description,
+        address: business.address,
         confirmationMode: business.confirmationMode,
         whatsapp: business.whatsapp,
         instagram: business.instagram,
         primaryColor: business.primaryColor,
+        minLeadMinutes: business.minLeadMinutes,
+        maxLeadDays: business.maxLeadDays,
+        cancellationHours: business.cancellationHours,
       }),
     });
     setSaving(false);
@@ -229,17 +264,102 @@ export default function ConfiguracoesPage({
       body: JSON.stringify({
         businessId,
         name: serviceName,
+        description: serviceDescription || undefined,
+        categoryId: serviceCategoryId || undefined,
         priceCents: Math.round(parseFloat(servicePrice.replace(",", ".")) * 100),
         durationMin: parseInt(serviceDuration, 10),
         professionalIds: serviceProfessionalIds,
       }),
     });
     setServiceName("");
+    setServiceDescription("");
+    setServiceCategoryId("");
     setServicePrice("");
     setServiceDuration("60");
     setServiceProfessionalIds([]);
     await load();
     setSavingService(false);
+  }
+
+  async function addCategory(e: React.FormEvent) {
+    e.preventDefault();
+    if (!categoryName.trim()) return;
+    setSavingCategory(true);
+    await fetch("/api/painel/service-categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, name: categoryName }),
+    });
+    setCategoryName("");
+    await load();
+    setSavingCategory(false);
+  }
+
+  function startEditCategory(c: ServiceCategory) {
+    setEditingCategoryId(c.id);
+    setEditCategoryName(c.name);
+  }
+
+  async function saveEditCategory(id: string) {
+    if (!editCategoryName.trim()) return;
+    await fetch(`/api/painel/service-categories/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, name: editCategoryName }),
+    });
+    setEditingCategoryId(null);
+    await load();
+  }
+
+  async function deleteCategory(id: string) {
+    await fetch(`/api/painel/service-categories/${id}?businessId=${businessId}`, { method: "DELETE" });
+    await load();
+  }
+
+  function startEditService(s: Service) {
+    setEditingServiceId(s.id);
+    setEditServiceName(s.name);
+    setEditServiceDescription(s.description ?? "");
+    setEditServiceCategoryId(s.categoryId ?? "");
+    setEditServicePrice((s.priceCents / 100).toFixed(2).replace(".", ","));
+    setEditServiceDuration(String(s.durationMin));
+    setEditServiceProfessionalIds(s.professionals.map((sp) => sp.professional.id));
+    setEditServicePhotoUrl(s.photoUrl);
+  }
+
+  function cancelEditService() {
+    setEditingServiceId(null);
+  }
+
+  async function saveEditService(id: string) {
+    if (!editServiceName.trim() || !editServicePrice || !editServiceDuration) return;
+    setSavingServiceEdit(true);
+    await fetch(`/api/painel/services/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId,
+        name: editServiceName,
+        description: editServiceDescription || null,
+        categoryId: editServiceCategoryId || null,
+        photoUrl: editServicePhotoUrl,
+        priceCents: Math.round(parseFloat(editServicePrice.replace(",", ".")) * 100),
+        durationMin: parseInt(editServiceDuration, 10),
+        professionalIds: editServiceProfessionalIds,
+      }),
+    });
+    setEditingServiceId(null);
+    await load();
+    setSavingServiceEdit(false);
+  }
+
+  async function toggleServiceActive(s: Service) {
+    setServices((prev) => prev.map((x) => (x.id === s.id ? { ...x, active: !x.active } : x)));
+    await fetch(`/api/painel/services/${s.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, active: !s.active }),
+    });
   }
 
   async function addBlock(e: React.FormEvent) {
@@ -627,6 +747,69 @@ export default function ConfiguracoesPage({
       </section>
 
       <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Categorias de serviço</h2>
+        <p className="text-xs text-zinc-500">Agrupe seus serviços — ex: Cabelo, Unhas, Estética. Opcional.</p>
+
+        <form onSubmit={addCategory} className="flex gap-2">
+          <input
+            value={categoryName}
+            onChange={(e) => setCategoryName(e.target.value)}
+            placeholder="Nome da categoria"
+            className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={savingCategory}
+            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            Adicionar
+          </button>
+        </form>
+
+        {categories.length > 0 && (
+          <ul className="flex flex-wrap gap-2">
+            {categories.map((c) =>
+              editingCategoryId === c.id ? (
+                <li key={c.id} className="flex items-center gap-1">
+                  <input
+                    value={editCategoryName}
+                    onChange={(e) => setEditCategoryName(e.target.value)}
+                    className="w-32 rounded-lg border border-accent px-2 py-1 text-xs outline-none"
+                    autoFocus
+                  />
+                  <button
+                    onClick={() => saveEditCategory(c.id)}
+                    className="rounded-lg bg-accent px-2 py-1 text-xs font-medium text-accent-foreground"
+                  >
+                    Salvar
+                  </button>
+                  <button
+                    onClick={() => setEditingCategoryId(null)}
+                    className="rounded-lg border border-zinc-300 px-2 py-1 text-xs"
+                  >
+                    Cancelar
+                  </button>
+                </li>
+              ) : (
+                <li
+                  key={c.id}
+                  className="flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1 text-xs text-zinc-700"
+                >
+                  {c.name}
+                  <button onClick={() => startEditCategory(c)} className="text-zinc-400 hover:text-zinc-700">
+                    editar
+                  </button>
+                  <button onClick={() => deleteCategory(c.id)} className="text-zinc-400 hover:text-red-600">
+                    ×
+                  </button>
+                </li>
+              )
+            )}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Serviços</h2>
         <p className="text-xs text-zinc-500">O que o seu salão oferece, com preço e duração.</p>
 
@@ -635,6 +818,13 @@ export default function ConfiguracoesPage({
             value={serviceName}
             onChange={(e) => setServiceName(e.target.value)}
             placeholder="Nome do serviço"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <textarea
+            value={serviceDescription}
+            onChange={(e) => setServiceDescription(e.target.value)}
+            placeholder="Descrição (opcional) — aparece pro cliente na hora de agendar"
+            rows={2}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
           />
           <div className="flex gap-2">
@@ -652,6 +842,21 @@ export default function ConfiguracoesPage({
               className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
             />
           </div>
+
+          {categories.length > 0 && (
+            <select
+              value={serviceCategoryId}
+              onChange={(e) => setServiceCategoryId(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              <option value="">Sem categoria</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           {professionals.length > 0 && (
             <div className="space-y-1">
@@ -696,17 +901,139 @@ export default function ConfiguracoesPage({
           <p className="text-sm text-zinc-500">Nenhum serviço cadastrado ainda.</p>
         ) : (
           <ul className="grid gap-2 sm:grid-cols-2">
-            {services.map((s) => (
-              <li key={s.id} className="rounded-lg border border-zinc-200 px-3 py-2">
-                <p className="text-sm font-medium text-zinc-900">{s.name}</p>
-                <p className="text-sm text-zinc-600">
-                  {formatBRL(s.priceCents)} · {s.durationMin}min
-                </p>
-                <p className="mt-1 text-xs text-zinc-500">
-                  {s.professionals.map((sp) => sp.professional.name).join(", ") || "Sem profissional vinculado"}
-                </p>
-              </li>
-            ))}
+            {services.map((s) =>
+              editingServiceId === s.id ? (
+                <li key={s.id} className="col-span-full space-y-2 rounded-lg border border-accent bg-accent/5 p-3">
+                  <div className="flex gap-3">
+                    <ImageUploader
+                      businessId={businessId}
+                      currentUrl={editServicePhotoUrl}
+                      onUploaded={(url) => setEditServicePhotoUrl(url)}
+                      shape="square"
+                    />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <input
+                        value={editServiceName}
+                        onChange={(e) => setEditServiceName(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                      />
+                      <textarea
+                        value={editServiceDescription}
+                        onChange={(e) => setEditServiceDescription(e.target.value)}
+                        placeholder="Descrição (opcional)"
+                        rows={2}
+                        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      value={editServicePrice}
+                      onChange={(e) => setEditServicePrice(e.target.value)}
+                      placeholder="Preço (R$)"
+                      className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                    />
+                    <input
+                      value={editServiceDuration}
+                      onChange={(e) => setEditServiceDuration(e.target.value)}
+                      type="number"
+                      placeholder="Duração (min)"
+                      className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                    />
+                  </div>
+                  {categories.length > 0 && (
+                    <select
+                      value={editServiceCategoryId}
+                      onChange={(e) => setEditServiceCategoryId(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                    >
+                      <option value="">Sem categoria</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {professionals.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {professionals.map((p) => (
+                        <label
+                          key={p.id}
+                          className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${
+                            editServiceProfessionalIds.includes(p.id)
+                              ? "border-accent bg-accent/10 text-accent"
+                              : "border-zinc-300 text-zinc-600"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={editServiceProfessionalIds.includes(p.id)}
+                            onChange={(e) =>
+                              setEditServiceProfessionalIds((prev) =>
+                                e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                              )
+                            }
+                          />
+                          {p.name}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => saveEditService(s.id)}
+                      disabled={savingServiceEdit}
+                      className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+                    >
+                      {savingServiceEdit ? "Salvando..." : "Salvar"}
+                    </button>
+                    <button
+                      onClick={cancelEditService}
+                      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </li>
+              ) : (
+                <li key={s.id} className={`rounded-lg border border-zinc-200 px-3 py-2 ${!s.active ? "opacity-60" : ""}`}>
+                  <div className="flex items-start gap-2">
+                    {s.photoUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.photoUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-zinc-900">
+                        {s.name} {!s.active && <span className="text-xs font-normal text-zinc-500">(inativo)</span>}
+                      </p>
+                      <p className="text-sm text-zinc-600">
+                        {formatBRL(s.priceCents)} · {s.durationMin}min
+                      </p>
+                      {s.description && <p className="mt-1 text-xs text-zinc-500">{s.description}</p>}
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {s.professionals.map((sp) => sp.professional.name).join(", ") || "Sem profissional vinculado"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      onClick={() => startEditService(s)}
+                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => toggleServiceActive(s)}
+                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+                    >
+                      {s.active ? "Desativar" : "Ativar"}
+                    </button>
+                  </div>
+                </li>
+              )
+            )}
           </ul>
         )}
       </section>
@@ -718,6 +1045,24 @@ export default function ConfiguracoesPage({
           <input
             value={business.name}
             onChange={(e) => setBusiness({ ...business, name: e.target.value })}
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-zinc-700">Descrição</label>
+          <textarea
+            value={business.description ?? ""}
+            onChange={(e) => setBusiness({ ...business, description: e.target.value })}
+            placeholder="Uma frase sobre o seu salão — aparece na página pública"
+            rows={2}
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-sm font-medium text-zinc-700">Endereço</label>
+          <input
+            value={business.address ?? ""}
+            onChange={(e) => setBusiness({ ...business, address: e.target.value })}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
           />
         </div>
@@ -749,6 +1094,41 @@ export default function ConfiguracoesPage({
             <option value="MANUAL">Manual (você aprova cada agendamento)</option>
             <option value="AUTOMATIC">Automática (confirma sozinho)</option>
           </select>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-zinc-700">Antecedência mínima (min)</label>
+            <input
+              type="number"
+              min={0}
+              value={business.minLeadMinutes}
+              onChange={(e) => setBusiness({ ...business, minLeadMinutes: Number(e.target.value) })}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <p className="text-xs text-zinc-500">Cliente só agenda com esse tempo de antecedência.</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-zinc-700">Antecedência máxima (dias)</label>
+            <input
+              type="number"
+              min={1}
+              value={business.maxLeadDays}
+              onChange={(e) => setBusiness({ ...business, maxLeadDays: Number(e.target.value) })}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <p className="text-xs text-zinc-500">Até quantos dias no futuro dá pra agendar.</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-zinc-700">Cancelamento (horas)</label>
+            <input
+              type="number"
+              min={0}
+              value={business.cancellationHours}
+              onChange={(e) => setBusiness({ ...business, cancellationHours: Number(e.target.value) })}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <p className="text-xs text-zinc-500">Prazo mínimo pro cliente cancelar sozinho.</p>
+          </div>
         </div>
         <button
           onClick={saveBusiness}
