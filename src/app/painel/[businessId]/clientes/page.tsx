@@ -37,7 +37,15 @@ export default function ClientesPage({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-semibold">Clientes</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold">Clientes</h1>
+        <a
+          href={`/api/painel/customers/export?businessId=${businessId}`}
+          className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
+        >
+          Exportar CSV
+        </a>
+      </div>
 
       <input
         value={search}
