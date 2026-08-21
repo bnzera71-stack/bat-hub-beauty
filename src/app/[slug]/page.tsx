@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { getReadableTextColor } from "@/lib/palettes";
 import { AppointmentReminderOptin } from "@/components/appointment-reminder-optin";
 
@@ -177,6 +178,9 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
             )}
           </div>
         )}
+        <Link href={`/${slug}/agendamentos`} className="mt-2 inline-block text-xs text-zinc-400 underline">
+          Já tem agendamento? Ver ou cancelar
+        </Link>
       </div>
 
       <div className="mt-6 px-5">
@@ -354,6 +358,9 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
               </p>
             </div>
             {createdAppointmentId && <AppointmentReminderOptin appointmentId={createdAppointmentId} />}
+            <Link href={`/${slug}/agendamentos`} className="inline-block text-xs text-zinc-400 underline">
+              Precisar cancelar ou ver de novo, é só voltar aqui e buscar pelo telefone
+            </Link>
           </div>
         )}
       </div>
