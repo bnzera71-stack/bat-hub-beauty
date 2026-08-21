@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 function formatDuration(ms: number): string {
   const minutes = Math.ceil(ms / 60000);
@@ -10,6 +10,14 @@ function formatDuration(ms: number): string {
   const hours = Math.ceil(minutes / 60);
   if (hours < 24) return `${hours}h`;
   return `${Math.ceil(hours / 24)}d`;
+}
+
+function formatTrialEnd(iso: string): string {
+  const date = new Date(iso);
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const sameDay = date.toDateString() === new Date().toDateString();
+  if (sameDay) return `hoje às ${time}`;
+  return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às ${time}`;
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -36,6 +44,15 @@ export function SuperAdminBusinessRow({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
+  // Só existe pra forçar recalcular o texto de tempo restante a cada tick —
+  // sem isso o "Xmin" fica parado com o valor de quando a página carregou.
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   async function runAction(
     action: "activate" | "suspend" | "cancel" | "back_to_trial" | "extend_trial",
     extra?: { days?: number }
@@ -50,12 +67,14 @@ export function SuperAdminBusinessRow({
     setLoading(false);
   }
 
-  const trialMsLeft = business.trialEndsAt ? new Date(business.trialEndsAt).getTime() - Date.now() : 0;
+  // "now" só fica disponível depois do mount (evita mismatch de hydration,
+  // já que o servidor e o navegador nunca batem Date.now() no primeiro render).
+  const trialMsLeft = business.trialEndsAt && now ? new Date(business.trialEndsAt).getTime() - now : 0;
   const trialRunning = business.subscriptionStatus === "TRIAL" && trialMsLeft > 0;
-  const trialLabel = !business.trialEndsAt
+  const trialLabel = !business.trialEndsAt || !now
     ? null
     : trialRunning
-      ? `prévia acaba em ${formatDuration(trialMsLeft)}`
+      ? `prévia até ${formatTrialEnd(business.trialEndsAt)} (${formatDuration(trialMsLeft)})`
       : "prévia expirada";
 
   async function deleteBusiness() {

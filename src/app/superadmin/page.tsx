@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { SuperAdminBusinessRow } from "@/components/superadmin-business-row";
 import { SuperAdminHeader } from "@/components/superadmin-header";
+import { AutoRefresh } from "@/components/auto-refresh";
 
 export default async function SuperAdminPage() {
   const session = await auth();
@@ -30,6 +31,7 @@ export default async function SuperAdminPage() {
 
   return (
     <div className="min-h-dvh bg-zinc-50">
+      <AutoRefresh intervalMs={60_000} />
       <SuperAdminHeader />
       <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
