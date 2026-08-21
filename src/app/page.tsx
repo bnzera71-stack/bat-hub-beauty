@@ -8,7 +8,13 @@ import { WhatsappBubble } from "@/components/whatsapp-bubble";
 
 export default function Home() {
   return (
-    <div className="relative flex min-h-dvh w-full flex-1 flex-col items-center justify-center overflow-hidden px-6 py-16 text-center">
+    <div
+      className="relative flex min-h-dvh w-full flex-1 flex-col items-center justify-center overflow-hidden px-6 text-center"
+      style={{
+        paddingTop: "max(4rem, env(safe-area-inset-top))",
+        paddingBottom: "max(4rem, env(safe-area-inset-bottom))",
+      }}
+    >
       <FlowBackground />
       <WhatsappBubble />
 

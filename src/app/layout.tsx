@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
 import "./globals.css";
@@ -16,6 +16,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Hub Beauty",
   description: "Agendamento online e gestão para salões e profissionais da beleza.",
+};
+
+// viewportFit: "cover" é o que faz o fundo ir por baixo da barra de status e do
+// home indicator no iPhone — sem isso sobra faixa branca em cima/embaixo.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#1b1420",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -84,7 +84,10 @@ export function PainelShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-2 bg-panel-dark px-4 py-3 md:hidden">
+        <header
+          className="sticky top-0 z-30 flex items-center gap-2 bg-panel-dark px-4 pb-3 md:hidden"
+          style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+        >
           <Image src="/logo-hub-beauty.png" alt="Hub Beauty" width={26} height={26} className="rounded-md shrink-0" />
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-panel-dark-foreground">{businessName}</p>
         </header>
