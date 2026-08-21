@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, useCallback } from "react";
 import { BUSINESS_PALETTES } from "@/lib/palettes";
+import { ImageUploader } from "@/components/image-uploader";
 
 type Business = {
   id: string;
@@ -11,10 +12,12 @@ type Business = {
   primaryColor: string;
   whatsapp: string | null;
   instagram: string | null;
+  logoUrl: string | null;
+  coverUrl: string | null;
 };
 
 type BusinessHour = { weekday: number; startTime: string; endTime: string };
-type Professional = { id: string; name: string; active: boolean; specialties: string[] };
+type Professional = { id: string; name: string; active: boolean; specialties: string[]; photoUrl: string | null };
 type Service = {
   id: string;
   name: string;
@@ -163,6 +166,25 @@ export default function ConfiguracoesPage({
     setBusiness(data.business);
     setEditingSlug(false);
     setSavingSlug(false);
+  }
+
+  async function saveBusinessField(field: "logoUrl" | "coverUrl", url: string) {
+    if (!business) return;
+    setBusiness({ ...business, [field]: url });
+    await fetch("/api/painel/business", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, [field]: url }),
+    });
+  }
+
+  async function saveProfessionalPhoto(professionalId: string, url: string) {
+    setProfessionals((prev) => prev.map((p) => (p.id === professionalId ? { ...p, photoUrl: url } : p)));
+    await fetch(`/api/painel/professionals/${professionalId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, photoUrl: url }),
+    });
   }
 
   async function addProfessional(e: React.FormEvent) {
@@ -326,6 +348,28 @@ export default function ConfiguracoesPage({
 
       <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Aparência da página pública</h2>
+
+        <div className="flex flex-wrap gap-4">
+          <div className="space-y-1">
+            <p className="text-xs font-medium text-zinc-600">Logo</p>
+            <ImageUploader
+              businessId={businessId}
+              currentUrl={business.logoUrl}
+              onUploaded={(url) => saveBusinessField("logoUrl", url)}
+              shape="square"
+            />
+          </div>
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="text-xs font-medium text-zinc-600">Foto de capa</p>
+            <ImageUploader
+              businessId={businessId}
+              currentUrl={business.coverUrl}
+              onUploaded={(url) => saveBusinessField("coverUrl", url)}
+              shape="wide"
+            />
+          </div>
+        </div>
+
         <p className="text-xs text-zinc-500">
           Essa cor aparece na sua página de agendamento — escolha algo que combine com o seu negócio.
         </p>
@@ -387,11 +431,21 @@ export default function ConfiguracoesPage({
         {professionals.length === 0 ? (
           <p className="text-sm text-zinc-500">Nenhum profissional cadastrado ainda.</p>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid gap-3 sm:grid-cols-2">
             {professionals.map((p) => (
-              <li key={p.id} className="rounded-lg border border-zinc-200 px-3 py-2">
-                <p className="text-sm font-medium text-zinc-900">{p.name}</p>
-                {!p.active && <p className="text-xs text-zinc-500">Inativo</p>}
+              <li key={p.id} className="flex items-center gap-3 rounded-lg border border-zinc-200 px-3 py-2">
+                <div className="shrink-0">
+                  <ImageUploader
+                    businessId={businessId}
+                    currentUrl={p.photoUrl}
+                    onUploaded={(url) => saveProfessionalPhoto(p.id, url)}
+                    shape="square"
+                  />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">{p.name}</p>
+                  {!p.active && <p className="text-xs text-zinc-500">Inativo</p>}
+                </div>
               </li>
             ))}
           </ul>

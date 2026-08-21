@@ -205,8 +205,16 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
                   setSelectedProfessional(p);
                   setStep("datetime");
                 }}
-                className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-left font-medium hover:border-[var(--biz-color)]"
+                className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-left font-medium hover:border-[var(--biz-color)]"
               >
+                {p.photoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.photoUrl} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm text-zinc-400">
+                    {p.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
                 {p.name}
               </button>
             ))}
