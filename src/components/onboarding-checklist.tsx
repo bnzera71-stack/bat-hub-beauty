@@ -24,10 +24,11 @@ export function OnboardingChecklist({
 }) {
   const [copied, setCopied] = useState(false);
 
+  const configuracoesHref = `/painel/${businessId}/configuracoes`;
   const steps: Step[] = [
-    { label: "Definir horário de funcionamento", done: hasHours, href: `/painel/${businessId}/configuracoes` },
-    { label: "Cadastrar pelo menos um serviço", done: hasServices, href: `/painel/${businessId}/servicos` },
-    { label: "Cadastrar pelo menos um profissional", done: hasProfessionals, href: `/painel/${businessId}/profissionais` },
+    { label: "Definir horário de funcionamento", done: hasHours, href: configuracoesHref },
+    { label: "Cadastrar pelo menos um serviço", done: hasServices, href: configuracoesHref },
+    { label: "Cadastrar pelo menos um profissional", done: hasProfessionals, href: configuracoesHref },
   ];
 
   const allDone = steps.every((s) => s.done);
