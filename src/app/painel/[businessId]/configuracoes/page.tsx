@@ -77,6 +77,14 @@ export default function ConfiguracoesPage({
   const [savingBlock, setSavingBlock] = useState(false);
   const [blockError, setBlockError] = useState<string | null>(null);
 
+  const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
+  const [editProfessionalId, setEditProfessionalId] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editReason, setEditReason] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     const [businessRes, hoursRes, professionalsRes, servicesRes, blocksRes] = await Promise.all([
@@ -263,6 +271,58 @@ export default function ConfiguracoesPage({
   async function removeBlock(id: string) {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
     await fetch(`/api/painel/blocked-periods/${id}?businessId=${businessId}`, { method: "DELETE" });
+  }
+
+  function toDatetimeLocal(iso: string) {
+    const d = new Date(iso);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function startEditBlock(b: BlockedPeriod) {
+    setEditingBlockId(b.id);
+    setEditProfessionalId(b.professionalId ?? "");
+    setEditStart(toDatetimeLocal(b.startAt));
+    setEditEnd(toDatetimeLocal(b.endAt));
+    setEditReason(b.reason ?? "");
+    setEditError(null);
+  }
+
+  function cancelEditBlock() {
+    setEditingBlockId(null);
+    setEditError(null);
+  }
+
+  async function saveEditBlock(id: string) {
+    if (!editStart || !editEnd) return;
+    const startAt = new Date(editStart);
+    const endAt = new Date(editEnd);
+    if (endAt <= startAt) {
+      setEditError("O fim precisa ser depois do início.");
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    const res = await fetch(`/api/painel/blocked-periods/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId,
+        professionalId: editProfessionalId || null,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        reason: editReason || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setEditError(data.error ?? "Não foi possível salvar.");
+      setSavingEdit(false);
+      return;
+    }
+    setEditingBlockId(null);
+    await load();
+    setSavingEdit(false);
   }
 
   function formatBlockRange(startAt: string, endAt: string) {
@@ -693,28 +753,97 @@ export default function ConfiguracoesPage({
           <p className="text-sm text-zinc-500">Nenhum bloqueio cadastrado.</p>
         ) : (
           <ul className="space-y-2">
-            {blocks.map((b) => (
-              <li
-                key={b.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2"
-              >
-                <div>
-                  <p className="text-sm font-medium text-zinc-900">{formatBlockRange(b.startAt, b.endAt)}</p>
-                  <p className="text-xs text-zinc-500">
-                    {b.professionalId
-                      ? professionals.find((p) => p.id === b.professionalId)?.name ?? "Profissional"
-                      : "Todo o negócio"}
-                    {b.reason ? ` · ${b.reason}` : ""}
-                  </p>
-                </div>
-                <button
-                  onClick={() => removeBlock(b.id)}
-                  className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+            {blocks.map((b) =>
+              editingBlockId === b.id ? (
+                <li key={b.id} className="space-y-2 rounded-lg border border-accent bg-accent/5 px-3 py-3">
+                  {professionals.length > 0 && (
+                    <select
+                      value={editProfessionalId}
+                      onChange={(e) => setEditProfessionalId(e.target.value)}
+                      className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                    >
+                      <option value="">Todo o negócio</option>
+                      {professionals.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          Só {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <label className="text-xs font-medium text-zinc-600">Início</label>
+                      <input
+                        type="datetime-local"
+                        value={editStart}
+                        onChange={(e) => setEditStart(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <label className="text-xs font-medium text-zinc-600">Fim</label>
+                      <input
+                        type="datetime-local"
+                        value={editEnd}
+                        onChange={(e) => setEditEnd(e.target.value)}
+                        className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                      />
+                    </div>
+                  </div>
+                  <input
+                    value={editReason}
+                    onChange={(e) => setEditReason(e.target.value)}
+                    placeholder="Motivo (opcional)"
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                  {editError && <p className="text-sm text-red-600">{editError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => saveEditBlock(b.id)}
+                      disabled={savingEdit}
+                      className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+                    >
+                      {savingEdit ? "Salvando..." : "Salvar"}
+                    </button>
+                    <button
+                      onClick={cancelEditBlock}
+                      className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </li>
+              ) : (
+                <li
+                  key={b.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2"
                 >
-                  Remover
-                </button>
-              </li>
-            ))}
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900">{formatBlockRange(b.startAt, b.endAt)}</p>
+                    <p className="text-xs text-zinc-500">
+                      {b.professionalId
+                        ? professionals.find((p) => p.id === b.professionalId)?.name ?? "Profissional"
+                        : "Todo o negócio"}
+                      {b.reason ? ` · ${b.reason}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      onClick={() => startEditBlock(b)}
+                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => removeBlock(b.id)}
+                      className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                </li>
+              )
+            )}
           </ul>
         )}
       </section>
