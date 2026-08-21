@@ -23,7 +23,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
+html {
+  overscroll-behavior-y: none;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
+  overflow-x: hidden;
 }
