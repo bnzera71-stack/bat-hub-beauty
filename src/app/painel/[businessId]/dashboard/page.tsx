@@ -17,22 +17,28 @@ export default async function DashboardPage({
   dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(now);
   dayEnd.setHours(23, 59, 59, 999);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
 
-  const [todayAppointments, business, hoursCount, servicesCount, professionalsCount] = await Promise.all([
-    prisma.appointment.findMany({
-      where: { businessId, startAt: { gte: dayStart, lte: dayEnd } },
-      include: {
-        customer: { select: { name: true } },
-        professional: { select: { name: true } },
-        service: { select: { name: true, priceCents: true } },
-      },
-      orderBy: { startAt: "asc" },
-    }),
-    prisma.business.findUnique({ where: { id: businessId }, select: { slug: true } }),
-    prisma.businessHours.count({ where: { businessId } }),
-    prisma.service.count({ where: { businessId, active: true } }),
-    prisma.professional.count({ where: { businessId, active: true } }),
-  ]);
+  const [todayAppointments, monthCompleted, business, hoursCount, servicesCount, professionalsCount] =
+    await Promise.all([
+      prisma.appointment.findMany({
+        where: { businessId, startAt: { gte: dayStart, lte: dayEnd } },
+        include: {
+          customer: { select: { name: true } },
+          professional: { select: { name: true } },
+          service: { select: { name: true, priceCents: true } },
+        },
+        orderBy: { startAt: "asc" },
+      }),
+      prisma.appointment.findMany({
+        where: { businessId, status: "COMPLETED", startAt: { gte: monthStart, lte: now } },
+        select: { service: { select: { id: true, name: true, priceCents: true } } },
+      }),
+      prisma.business.findUnique({ where: { id: businessId }, select: { slug: true } }),
+      prisma.businessHours.count({ where: { businessId } }),
+      prisma.service.count({ where: { businessId, active: true } }),
+      prisma.professional.count({ where: { businessId, active: true } }),
+    ]);
 
   const pending = todayAppointments.filter((a) => a.status === "PENDING").length;
   const completed = todayAppointments.filter((a) => a.status === "COMPLETED");
@@ -40,6 +46,18 @@ export default async function DashboardPage({
   const nextAppointment = todayAppointments.find((a) =>
     ["CONFIRMED", "PENDING", "ARRIVED"].includes(a.status)
   );
+
+  const monthRevenue = monthCompleted.reduce((sum, a) => sum + a.service.priceCents, 0);
+  const serviceCounts = new Map<string, { name: string; count: number; revenue: number }>();
+  for (const a of monthCompleted) {
+    const entry = serviceCounts.get(a.service.id) ?? { name: a.service.name, count: 0, revenue: 0 };
+    entry.count += 1;
+    entry.revenue += a.service.priceCents;
+    serviceCounts.set(a.service.id, entry);
+  }
+  const topService = Array.from(serviceCounts.values()).sort((a, b) => b.count - a.count)[0] ?? null;
+  const monthName = now.toLocaleDateString("pt-BR", { month: "long" });
+  const monthLabel = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
   return (
     <div className="space-y-6">
@@ -74,6 +92,18 @@ export default async function DashboardPage({
           <p className="mt-2 text-sm text-zinc-500">Sua agenda está livre hoje.</p>
         )}
       </div>
+
+      <div className="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-zinc-900">Faturamento de {monthLabel}</h2>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Stat label="Total do mês" value={formatBRL(monthRevenue)} />
+          <Stat label="Atendimentos" value={monthCompleted.length} />
+          <Stat label="Serviço mais vendido" value={topService ? topService.name : "—"} />
+        </div>
+        {monthCompleted.length === 0 && (
+          <p className="mt-3 text-sm text-zinc-500">Nenhum atendimento finalizado neste mês ainda.</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -82,7 +112,14 @@ function Stat({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4">
       <p className="text-xs font-medium text-zinc-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-zinc-900">{value}</p>
+      <p
+        className={`mt-1 font-semibold text-zinc-900 ${
+          typeof value === "string" && value.length > 12 ? "truncate text-base" : "text-2xl"
+        }`}
+        title={typeof value === "string" ? value : undefined}
+      >
+        {value}
+      </p>
     </div>
   );
 }
