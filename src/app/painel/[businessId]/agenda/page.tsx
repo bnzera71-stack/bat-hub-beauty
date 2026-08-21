@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState, useCallback } from "react";
+import { NewAppointmentModal } from "@/components/new-appointment-modal";
 
 type Appointment = {
   id: string;
@@ -63,6 +64,7 @@ export default function AgendaPage({
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -115,7 +117,25 @@ export default function AgendaPage({
             →
           </button>
         </div>
+        <button
+          onClick={() => setShowNewModal(true)}
+          className="w-full rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 sm:w-auto"
+        >
+          + Novo agendamento
+        </button>
       </div>
+
+      {showNewModal && (
+        <NewAppointmentModal
+          businessId={businessId}
+          defaultDate={date}
+          onClose={() => setShowNewModal(false)}
+          onCreated={() => {
+            setShowNewModal(false);
+            load();
+          }}
+        />
+      )}
 
       {loading ? (
         <p className="text-sm text-zinc-500">Carregando...</p>
