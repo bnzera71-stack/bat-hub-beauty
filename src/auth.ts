@@ -3,8 +3,12 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 
+const NINETY_DAYS = 60 * 60 * 24 * 90;
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  // Sessão longa (90 dias, renovando a cada acesso) — dona de salão e Super Admin
+  // não devem precisar logar de novo toda hora numa ferramenta de uso diário.
+  session: { strategy: "jwt", maxAge: NINETY_DAYS, updateAge: 60 * 60 * 24 },
   secret: process.env.NEXTAUTH_SECRET,
   // Necessário fora da Vercel (Netlify, etc) — sem isso o NextAuth v5 rejeita o
   // host da requisição em produção com "UntrustedHost" e o login vira 500.
