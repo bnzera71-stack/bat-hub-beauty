@@ -9,6 +9,7 @@ type Service = {
   id: string;
   name: string;
   description: string | null;
+  photoUrl: string | null;
   priceCents: number;
   durationMin: number;
   professionals: { professional: Professional }[];
@@ -152,6 +153,30 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
         <h1 className="mt-2 text-xl font-semibold text-zinc-900">{business.name}</h1>
         {business.description && <p className="mt-1 text-sm text-zinc-600">{business.description}</p>}
         {business.address && <p className="mt-1 text-xs text-zinc-500">{business.address}</p>}
+        {(business.whatsapp || business.instagram) && (
+          <div className="mt-2 flex gap-4 text-xs font-medium">
+            {business.whatsapp && (
+              <a
+                href={`https://wa.me/55${business.whatsapp.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: business.primaryColor }}
+              >
+                WhatsApp
+              </a>
+            )}
+            {business.instagram && (
+              <a
+                href={`https://instagram.com/${business.instagram.replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: business.primaryColor }}
+              >
+                @{business.instagram.replace(/^@/, "")}
+              </a>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-6 px-5">
@@ -169,13 +194,26 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
                           setSelectedProfessional(null);
                           setStep("professional");
                         }}
-                        className="flex w-full items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 text-left hover:border-[var(--biz-color)]"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white p-4 text-left hover:border-[var(--biz-color)]"
                       >
-                        <span>
-                          <span className="block font-medium text-zinc-900">{s.name}</span>
-                          <span className="block text-xs text-zinc-500">{s.durationMin}min</span>
+                        <span className="flex min-w-0 items-center gap-3">
+                          {s.photoUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={s.photoUrl}
+                              alt=""
+                              className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                            />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block font-medium text-zinc-900">{s.name}</span>
+                            {s.description && (
+                              <span className="mt-0.5 block truncate text-xs text-zinc-500">{s.description}</span>
+                            )}
+                            <span className="block text-xs text-zinc-500">{s.durationMin}min</span>
+                          </span>
                         </span>
-                        <span className="font-semibold text-zinc-900">{formatBRL(s.priceCents)}</span>
+                        <span className="shrink-0 font-semibold text-zinc-900">{formatBRL(s.priceCents)}</span>
                       </button>
                     </li>
                   ))}

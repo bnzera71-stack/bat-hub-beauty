@@ -828,19 +828,25 @@ export default function ConfiguracoesPage({
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
           />
           <div className="flex gap-2">
-            <input
-              value={servicePrice}
-              onChange={(e) => setServicePrice(e.target.value)}
-              placeholder="Preço (R$)"
-              className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-            />
-            <input
-              value={serviceDuration}
-              onChange={(e) => setServiceDuration(e.target.value)}
-              type="number"
-              placeholder="Duração (min)"
-              className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-            />
+            <div className="relative w-1/2">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">R$</span>
+              <input
+                value={servicePrice}
+                onChange={(e) => setServicePrice(e.target.value)}
+                placeholder="0,00"
+                className="w-full rounded-lg border border-zinc-300 py-2 pl-8 pr-3 text-sm outline-none focus:border-accent"
+              />
+            </div>
+            <div className="relative w-1/2">
+              <input
+                value={serviceDuration}
+                onChange={(e) => setServiceDuration(e.target.value)}
+                type="number"
+                placeholder="60"
+                className="w-full rounded-lg border border-zinc-300 py-2 pl-3 pr-10 text-sm outline-none focus:border-accent"
+              />
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">min</span>
+            </div>
           </div>
 
           {categories.length > 0 && (
@@ -927,19 +933,25 @@ export default function ConfiguracoesPage({
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <input
-                      value={editServicePrice}
-                      onChange={(e) => setEditServicePrice(e.target.value)}
-                      placeholder="Preço (R$)"
-                      className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-                    />
-                    <input
-                      value={editServiceDuration}
-                      onChange={(e) => setEditServiceDuration(e.target.value)}
-                      type="number"
-                      placeholder="Duração (min)"
-                      className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-                    />
+                    <div className="relative w-1/2">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">R$</span>
+                      <input
+                        value={editServicePrice}
+                        onChange={(e) => setEditServicePrice(e.target.value)}
+                        placeholder="0,00"
+                        className="w-full rounded-lg border border-zinc-300 py-2 pl-8 pr-3 text-sm outline-none focus:border-accent"
+                      />
+                    </div>
+                    <div className="relative w-1/2">
+                      <input
+                        value={editServiceDuration}
+                        onChange={(e) => setEditServiceDuration(e.target.value)}
+                        type="number"
+                        placeholder="60"
+                        className="w-full rounded-lg border border-zinc-300 py-2 pl-3 pr-10 text-sm outline-none focus:border-accent"
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400">min</span>
+                    </div>
                   </div>
                   {categories.length > 0 && (
                     <select
