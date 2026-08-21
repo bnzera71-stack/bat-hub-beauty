@@ -23,6 +23,13 @@ type Service = {
   active: boolean;
   professionals: { professional: Professional }[];
 };
+type BlockedPeriod = {
+  id: string;
+  professionalId: string | null;
+  startAt: string;
+  endAt: string;
+  reason: string | null;
+};
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -59,22 +66,33 @@ export default function ConfiguracoesPage({
   const [serviceProfessionalIds, setServiceProfessionalIds] = useState<string[]>([]);
   const [savingService, setSavingService] = useState(false);
 
+  const [blocks, setBlocks] = useState<BlockedPeriod[]>([]);
+  const [blockProfessionalId, setBlockProfessionalId] = useState("");
+  const [blockStart, setBlockStart] = useState("");
+  const [blockEnd, setBlockEnd] = useState("");
+  const [blockReason, setBlockReason] = useState("");
+  const [savingBlock, setSavingBlock] = useState(false);
+  const [blockError, setBlockError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [businessRes, hoursRes, professionalsRes, servicesRes] = await Promise.all([
+    const [businessRes, hoursRes, professionalsRes, servicesRes, blocksRes] = await Promise.all([
       fetch(`/api/painel/business?businessId=${businessId}`),
       fetch(`/api/painel/business-hours?businessId=${businessId}`),
       fetch(`/api/painel/professionals?businessId=${businessId}`),
       fetch(`/api/painel/services?businessId=${businessId}`),
+      fetch(`/api/painel/blocked-periods?businessId=${businessId}`),
     ]);
     const businessData = await businessRes.json();
     const hoursData = await hoursRes.json();
     const professionalsData = await professionalsRes.json();
     const servicesData = await servicesRes.json();
+    const blocksData = await blocksRes.json();
 
     setBusiness(businessData.business);
     setProfessionals(professionalsData.professionals ?? []);
     setServices(servicesData.services ?? []);
+    setBlocks(blocksData.blocks ?? []);
 
     const map: Record<number, { open: boolean; startTime: string; endTime: string }> = {};
     for (let i = 0; i < 7; i++) map[i] = { open: false, startTime: "09:00", endTime: "18:00" };
@@ -182,6 +200,59 @@ export default function ConfiguracoesPage({
     setServiceProfessionalIds([]);
     await load();
     setSavingService(false);
+  }
+
+  async function addBlock(e: React.FormEvent) {
+    e.preventDefault();
+    if (!blockStart || !blockEnd) return;
+    setBlockError(null);
+    const startAt = new Date(blockStart);
+    const endAt = new Date(blockEnd);
+    if (endAt <= startAt) {
+      setBlockError("O fim precisa ser depois do início.");
+      return;
+    }
+    setSavingBlock(true);
+    const res = await fetch("/api/painel/blocked-periods", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId,
+        professionalId: blockProfessionalId || undefined,
+        startAt: startAt.toISOString(),
+        endAt: endAt.toISOString(),
+        reason: blockReason || undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setBlockError(data.error ?? "Não foi possível salvar o bloqueio.");
+      setSavingBlock(false);
+      return;
+    }
+    setBlockProfessionalId("");
+    setBlockStart("");
+    setBlockEnd("");
+    setBlockReason("");
+    await load();
+    setSavingBlock(false);
+  }
+
+  async function removeBlock(id: string) {
+    setBlocks((prev) => prev.filter((b) => b.id !== id));
+    await fetch(`/api/painel/blocked-periods/${id}?businessId=${businessId}`, { method: "DELETE" });
+  }
+
+  function formatBlockRange(startAt: string, endAt: string) {
+    const start = new Date(startAt);
+    const end = new Date(endAt);
+    const sameDay = start.toDateString() === end.toDateString();
+    const dateFmt: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit" };
+    const timeFmt: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
+    if (sameDay) {
+      return `${start.toLocaleDateString("pt-BR", dateFmt)} · ${start.toLocaleTimeString("pt-BR", timeFmt)} às ${end.toLocaleTimeString("pt-BR", timeFmt)}`;
+    }
+    return `${start.toLocaleDateString("pt-BR", dateFmt)} ${start.toLocaleTimeString("pt-BR", timeFmt)} até ${end.toLocaleDateString("pt-BR", dateFmt)} ${end.toLocaleTimeString("pt-BR", timeFmt)}`;
   }
 
   if (loading || !business) return <p className="text-sm text-zinc-500">Carregando...</p>;
@@ -504,6 +575,94 @@ export default function ConfiguracoesPage({
         >
           Salvar horários
         </button>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Bloqueios e férias</h2>
+        <p className="text-xs text-zinc-500">
+          Bloqueia um período pra não deixar ninguém agendar — folga, férias, feriado. Escolha "Todo o negócio" pra
+          fechar o salão inteiro, ou um profissional específico.
+        </p>
+
+        <form onSubmit={addBlock} className="space-y-3">
+          {professionals.length > 0 && (
+            <select
+              value={blockProfessionalId}
+              onChange={(e) => setBlockProfessionalId(e.target.value)}
+              className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            >
+              <option value="">Todo o negócio</option>
+              {professionals.map((p) => (
+                <option key={p.id} value={p.id}>
+                  Só {p.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <div className="min-w-0 flex-1 space-y-1">
+              <label className="text-xs font-medium text-zinc-600">Início</label>
+              <input
+                type="datetime-local"
+                value={blockStart}
+                onChange={(e) => setBlockStart(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+            </div>
+            <div className="min-w-0 flex-1 space-y-1">
+              <label className="text-xs font-medium text-zinc-600">Fim</label>
+              <input
+                type="datetime-local"
+                value={blockEnd}
+                onChange={(e) => setBlockEnd(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+              />
+            </div>
+          </div>
+          <input
+            value={blockReason}
+            onChange={(e) => setBlockReason(e.target.value)}
+            placeholder="Motivo (opcional) — ex: Férias"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          {blockError && <p className="text-sm text-red-600">{blockError}</p>}
+          <button
+            type="submit"
+            disabled={savingBlock}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            {savingBlock ? "Salvando..." : "Adicionar bloqueio"}
+          </button>
+        </form>
+
+        {blocks.length === 0 ? (
+          <p className="text-sm text-zinc-500">Nenhum bloqueio cadastrado.</p>
+        ) : (
+          <ul className="space-y-2">
+            {blocks.map((b) => (
+              <li
+                key={b.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">{formatBlockRange(b.startAt, b.endAt)}</p>
+                  <p className="text-xs text-zinc-500">
+                    {b.professionalId
+                      ? professionals.find((p) => p.id === b.professionalId)?.name ?? "Profissional"
+                      : "Todo o negócio"}
+                    {b.reason ? ` · ${b.reason}` : ""}
+                  </p>
+                </div>
+                <button
+                  onClick={() => removeBlock(b.id)}
+                  className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+                >
+                  Remover
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );
