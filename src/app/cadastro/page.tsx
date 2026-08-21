@@ -44,7 +44,7 @@ export default function CadastroPage() {
       return;
     }
 
-    router.push(`/painel/${data.businessId}/assinatura`);
+    router.push(`/painel/${data.businessId}/dashboard`);
   }
 
   return (
@@ -52,7 +52,7 @@ export default function CadastroPage() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <h1 className="text-2xl font-semibold">Criar minha conta</h1>
-          <p className="mt-1 text-sm text-zinc-600">14 dias grátis, sem cartão.</p>
+          <p className="mt-1 text-sm text-zinc-600">Prévia rápida, sem cartão.</p>
         </div>
 
         <div className="space-y-1">
