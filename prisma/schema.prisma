@@ -325,7 +325,9 @@ enum SubscriptionStatus {
 model AppSettings {
   id                Int      @id @default(1)
   currentPriceCents Int      @default(5990)
-  trialDays         Int      @default(14)
+  // Teste é só uma espiadinha curta (minutos, não dias) — depois disso só o
+  // Super Admin libera. Evita gente ficando "testando" de graça por dias.
+  trialMinutes      Int      @default(15)
   // Ativação de assinatura MVP1 é manual (PIX direto pro dono da Bat Hub +
   // liberação no Super Admin) — sem gateway automático ainda.
   supportPixKey     String?

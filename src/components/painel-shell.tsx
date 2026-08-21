@@ -7,14 +7,21 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
 import { NotificationBell } from "@/components/notification-bell";
+import { OnboardingTour } from "@/components/onboarding-tour";
+import { isSubscriptionUsable } from "@/lib/subscription-status";
+
+function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 const NAV_ITEMS = [
   { href: "dashboard", label: "Dashboard" },
   { href: "agenda", label: "Agenda" },
   { href: "clientes", label: "Clientes" },
-  { href: "profissionais", label: "Profissionais" },
-  { href: "servicos", label: "Serviços" },
-  { href: "configuracoes", label: "Configurações" },
+  { href: "configuracoes", label: "Agenda online" },
   { href: "assinatura", label: "Assinatura" },
 ];
 
@@ -25,9 +32,7 @@ const TAB_ITEMS = [
 ] as const;
 
 const MORE_ITEMS = [
-  { href: "profissionais", label: "Profissionais" },
-  { href: "servicos", label: "Serviços" },
-  { href: "configuracoes", label: "Configurações" },
+  { href: "configuracoes", label: "Agenda online" },
   { href: "assinatura", label: "Assinatura" },
 ];
 
@@ -36,24 +41,41 @@ export function PainelShell({
   businessName,
   userName,
   role,
-  subscriptionActive,
+  isSuperAdmin,
+  subscriptionStatus,
+  trialEndsAt,
   children,
 }: {
   businessId: string;
   businessName: string;
   userName: string;
   role: string;
-  subscriptionActive: boolean;
+  isSuperAdmin: boolean;
+  subscriptionStatus: string;
+  trialEndsAt: string | null;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
+  // Só existe pra forçar o componente a recalcular a cada segundo enquanto o
+  // teste de 15 minutos está correndo — o valor em si não é usado direto.
+  const [, setTick] = useState(0);
 
   const isMoreActive = MORE_ITEMS.some((item) => pathname?.startsWith(`/painel/${businessId}/${item.href}`));
   const assinaturaHref = `/painel/${businessId}/assinatura`;
   const isAssinaturaPage = pathname?.startsWith(assinaturaHref);
-  const gated = !subscriptionActive && !isAssinaturaPage;
+
+  const trialMsLeft = trialEndsAt ? new Date(trialEndsAt).getTime() - Date.now() : 0;
+  const onTrialCountdown = subscriptionStatus === "TRIAL" && trialMsLeft > 0;
+  const usable = isSuperAdmin || isSubscriptionUsable(subscriptionStatus, trialEndsAt);
+  const gated = !usable && !isAssinaturaPage;
+
+  useEffect(() => {
+    if (!onTrialCountdown) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [onTrialCountdown]);
 
   useEffect(() => {
     if (gated) router.replace(assinaturaHref);
@@ -62,8 +84,8 @@ export function PainelShell({
   if (gated) return null;
 
   return (
-    <div className="flex min-h-dvh w-full">
-      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-panel-dark p-4 md:flex">
+    <div className="flex h-dvh w-full overflow-hidden">
+      <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto bg-panel-dark p-4 md:flex">
         <div className="mb-6 flex items-center gap-2">
           <Image src="/logo-hub-beauty.png" alt="Hub Beauty" width={32} height={32} className="rounded-lg" />
           <div className="min-w-0 flex-1">
@@ -97,9 +119,9 @@ export function PainelShell({
         </button>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <header
-          className="sticky top-0 z-30 flex items-center gap-2 bg-panel-dark px-4 pb-3 md:hidden"
+          className="flex shrink-0 items-center gap-2 bg-panel-dark px-4 pb-3 md:hidden"
           style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
         >
           <Image src="/logo-hub-beauty.png" alt="Hub Beauty" width={26} height={26} className="rounded-md shrink-0" />
@@ -107,9 +129,18 @@ export function PainelShell({
           <NotificationBell businessId={businessId} />
         </header>
 
-        <main className="flex-1 bg-zinc-50 p-4 pb-24 md:p-8 md:pb-8">{children}</main>
+        {onTrialCountdown && !isAssinaturaPage && (
+          <div className="flex shrink-0 items-center justify-between gap-3 bg-amber-100 px-4 py-2 text-xs font-medium text-amber-900 md:px-8">
+            <span>Prévia expira em {formatCountdown(trialMsLeft)}</span>
+            <Link href={assinaturaHref} className="shrink-0 underline">
+              Ativar agora
+            </Link>
+          </div>
+        )}
 
-        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-white/10 bg-panel-dark pb-[env(safe-area-inset-bottom)] md:hidden">
+        <main className="flex-1 overflow-y-auto overscroll-contain bg-zinc-50 p-4 pb-24 md:p-8 md:pb-8">{children}</main>
+
+        <nav className="flex shrink-0 items-stretch border-t border-white/10 bg-panel-dark pb-[env(safe-area-inset-bottom)] md:hidden">
           {TAB_ITEMS.map((item) => {
             const href = `/painel/${businessId}/${item.href}`;
             const active = pathname?.startsWith(href);
@@ -186,6 +217,8 @@ export function PainelShell({
           </>
         )}
       </AnimatePresence>
+
+      <OnboardingTour businessId={businessId} />
     </div>
   );
 }

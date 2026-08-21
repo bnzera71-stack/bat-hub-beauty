@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const NINETY_DAYS = 60 * 60 * 24 * 90;
 
@@ -22,13 +23,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "E-mail", type: "email" },
         password: { label: "Senha", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
 
+        // Proteção contra força bruta: por e-mail (não deixa martelar uma conta
+        // específica) e por IP (não deixa um único atacante varrer várias contas).
+        const ip = getClientIp(request);
+        const normalizedEmail = email.toLowerCase().trim();
+        const emailOk = checkRateLimit(`login-email:${normalizedEmail}`, 8, 15 * 60 * 1000);
+        const ipOk = checkRateLimit(`login-ip:${ip}`, 30, 15 * 60 * 1000);
+        if (!emailOk || !ipOk) return null;
+
         const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase().trim() },
+          where: { email: normalizedEmail },
         });
         if (!user) return null;
 

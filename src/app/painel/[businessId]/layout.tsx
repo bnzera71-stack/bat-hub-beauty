@@ -32,7 +32,7 @@ export default async function PainelLayout({
 
   const [business, subscription] = await Promise.all([
     prisma.business.findUnique({ where: { id: businessId } }),
-    prisma.subscription.findUnique({ where: { businessId }, select: { status: true } }),
+    prisma.subscription.findUnique({ where: { businessId }, select: { status: true, trialEndsAt: true } }),
   ]);
   if (!business) redirect("/login");
 
@@ -42,7 +42,9 @@ export default async function PainelLayout({
       businessName={business.name}
       userName={user.name}
       role={role}
-      subscriptionActive={subscription?.status === "ACTIVE" || role === "SUPERADMIN"}
+      isSuperAdmin={role === "SUPERADMIN"}
+      subscriptionStatus={subscription?.status ?? "TRIAL"}
+      trialEndsAt={subscription?.trialEndsAt?.toISOString() ?? null}
     >
       {children}
     </PainelShell>

@@ -16,6 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Hub Beauty",
   description: "Agendamento online e gestão para salões e profissionais da beleza.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Hub Beauty",
+  },
+  icons: {
+    apple: "/logo-hub-beauty.png",
+  },
 };
 
 // viewportFit: "cover" é o que faz o fundo ir por baixo da barra de status e do

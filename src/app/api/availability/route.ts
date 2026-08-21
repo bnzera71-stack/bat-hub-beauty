@@ -3,6 +3,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getAvailableSlots } from "@/lib/availability";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const querySchema = z.object({
   slug: z.string().min(1),
   serviceId: z.string().min(1),

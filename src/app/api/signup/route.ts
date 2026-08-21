@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import { addDays } from "date-fns";
+import { addMinutes } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getAppSettings } from "@/lib/settings";
 import { generateUniqueSlug } from "@/lib/slug";
 import { errorResponse } from "@/lib/api";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   businessName: z.string().min(2).max(120),
@@ -16,6 +17,14 @@ const bodySchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(`signup:${ip}`, 5, 10 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Espera um pouco e tenta de novo." },
+        { status: 429 }
+      );
+    }
+
     const body = bodySchema.parse(await req.json());
     const email = body.ownerEmail.toLowerCase().trim();
 
@@ -52,7 +61,7 @@ export async function POST(req: NextRequest) {
           businessId,
           status: "TRIAL",
           priceCents: settings.currentPriceCents,
-          trialEndsAt: addDays(new Date(), settings.trialDays),
+          trialEndsAt: addMinutes(new Date(), settings.trialMinutes),
         },
       }),
       prisma.auditLog.create({

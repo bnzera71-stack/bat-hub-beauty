@@ -14,8 +14,21 @@ type Business = {
 };
 
 type BusinessHour = { weekday: number; startTime: string; endTime: string };
+type Professional = { id: string; name: string; active: boolean; specialties: string[] };
+type Service = {
+  id: string;
+  name: string;
+  priceCents: number;
+  durationMin: number;
+  active: boolean;
+  professionals: { professional: Professional }[];
+};
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+
+function formatBRL(cents: number) {
+  return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
 
 export default function ConfiguracoesPage({
   params,
@@ -27,6 +40,8 @@ export default function ConfiguracoesPage({
   const [hours, setHours] = useState<Record<number, { open: boolean; startTime: string; endTime: string }>>(
     {}
   );
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -35,16 +50,31 @@ export default function ConfiguracoesPage({
   const [slugError, setSlugError] = useState<string | null>(null);
   const [savingSlug, setSavingSlug] = useState(false);
 
+  const [professionalName, setProfessionalName] = useState("");
+  const [savingProfessional, setSavingProfessional] = useState(false);
+
+  const [serviceName, setServiceName] = useState("");
+  const [servicePrice, setServicePrice] = useState("");
+  const [serviceDuration, setServiceDuration] = useState("60");
+  const [serviceProfessionalIds, setServiceProfessionalIds] = useState<string[]>([]);
+  const [savingService, setSavingService] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
-    const [businessRes, hoursRes] = await Promise.all([
+    const [businessRes, hoursRes, professionalsRes, servicesRes] = await Promise.all([
       fetch(`/api/painel/business?businessId=${businessId}`),
       fetch(`/api/painel/business-hours?businessId=${businessId}`),
+      fetch(`/api/painel/professionals?businessId=${businessId}`),
+      fetch(`/api/painel/services?businessId=${businessId}`),
     ]);
     const businessData = await businessRes.json();
     const hoursData = await hoursRes.json();
+    const professionalsData = await professionalsRes.json();
+    const servicesData = await servicesRes.json();
 
     setBusiness(businessData.business);
+    setProfessionals(professionalsData.professionals ?? []);
+    setServices(servicesData.services ?? []);
 
     const map: Record<number, { open: boolean; startTime: string; endTime: string }> = {};
     for (let i = 0; i < 7; i++) map[i] = { open: false, startTime: "09:00", endTime: "18:00" };
@@ -117,11 +147,53 @@ export default function ConfiguracoesPage({
     setSavingSlug(false);
   }
 
+  async function addProfessional(e: React.FormEvent) {
+    e.preventDefault();
+    if (!professionalName.trim()) return;
+    setSavingProfessional(true);
+    await fetch("/api/painel/professionals", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, name: professionalName, specialties: [] }),
+    });
+    setProfessionalName("");
+    await load();
+    setSavingProfessional(false);
+  }
+
+  async function addService(e: React.FormEvent) {
+    e.preventDefault();
+    if (!serviceName.trim() || !servicePrice || !serviceDuration) return;
+    setSavingService(true);
+    await fetch("/api/painel/services", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId,
+        name: serviceName,
+        priceCents: Math.round(parseFloat(servicePrice.replace(",", ".")) * 100),
+        durationMin: parseInt(serviceDuration, 10),
+        professionalIds: serviceProfessionalIds,
+      }),
+    });
+    setServiceName("");
+    setServicePrice("");
+    setServiceDuration("60");
+    setServiceProfessionalIds([]);
+    await load();
+    setSavingService(false);
+  }
+
   if (loading || !business) return <p className="text-sm text-zinc-500">Carregando...</p>;
 
   return (
     <div className="max-w-xl space-y-8">
-      <h1 className="text-xl font-semibold">Configurações</h1>
+      <div>
+        <h1 className="text-xl font-semibold">Agenda online</h1>
+        <p className="mt-1 text-sm text-zinc-500">
+          Tudo que você configurar aqui atualiza na hora no seu link de agendamento.
+        </p>
+      </div>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-zinc-900">Seu link de agendamento</h2>
@@ -219,6 +291,125 @@ export default function ConfiguracoesPage({
         >
           Salvar cor
         </button>
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Profissionais</h2>
+        <p className="text-xs text-zinc-500">Quem atende no seu salão — aparece na hora de escolher na página pública.</p>
+
+        <form onSubmit={addProfessional} className="flex gap-2">
+          <input
+            value={professionalName}
+            onChange={(e) => setProfessionalName(e.target.value)}
+            placeholder="Nome do profissional"
+            className="min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <button
+            type="submit"
+            disabled={savingProfessional}
+            className="shrink-0 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            Adicionar
+          </button>
+        </form>
+
+        {professionals.length === 0 ? (
+          <p className="text-sm text-zinc-500">Nenhum profissional cadastrado ainda.</p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {professionals.map((p) => (
+              <li key={p.id} className="rounded-lg border border-zinc-200 px-3 py-2">
+                <p className="text-sm font-medium text-zinc-900">{p.name}</p>
+                {!p.active && <p className="text-xs text-zinc-500">Inativo</p>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
+        <h2 className="text-sm font-semibold text-zinc-900">Serviços</h2>
+        <p className="text-xs text-zinc-500">O que o seu salão oferece, com preço e duração.</p>
+
+        <form onSubmit={addService} className="space-y-3">
+          <input
+            value={serviceName}
+            onChange={(e) => setServiceName(e.target.value)}
+            placeholder="Nome do serviço"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <div className="flex gap-2">
+            <input
+              value={servicePrice}
+              onChange={(e) => setServicePrice(e.target.value)}
+              placeholder="Preço (R$)"
+              className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+            <input
+              value={serviceDuration}
+              onChange={(e) => setServiceDuration(e.target.value)}
+              type="number"
+              placeholder="Duração (min)"
+              className="w-1/2 rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+            />
+          </div>
+
+          {professionals.length > 0 && (
+            <div className="space-y-1">
+              <p className="text-xs font-medium text-zinc-600">Quem pode atender</p>
+              <div className="flex flex-wrap gap-2">
+                {professionals.map((p) => (
+                  <label
+                    key={p.id}
+                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs ${
+                      serviceProfessionalIds.includes(p.id)
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-zinc-300 text-zinc-600"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={serviceProfessionalIds.includes(p.id)}
+                      onChange={(e) =>
+                        setServiceProfessionalIds((prev) =>
+                          e.target.checked ? [...prev, p.id] : prev.filter((id) => id !== p.id)
+                        )
+                      }
+                    />
+                    {p.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={savingService}
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+          >
+            Adicionar serviço
+          </button>
+        </form>
+
+        {services.length === 0 ? (
+          <p className="text-sm text-zinc-500">Nenhum serviço cadastrado ainda.</p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {services.map((s) => (
+              <li key={s.id} className="rounded-lg border border-zinc-200 px-3 py-2">
+                <p className="text-sm font-medium text-zinc-900">{s.name}</p>
+                <p className="text-sm text-zinc-600">
+                  {formatBRL(s.priceCents)} · {s.durationMin}min
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  {s.professionals.map((sp) => sp.professional.name).join(", ") || "Sem profissional vinculado"}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">

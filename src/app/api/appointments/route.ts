@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { getAvailableSlots } from "@/lib/availability";
 import { emitAppointmentEvent } from "@/lib/events";
 import { errorResponse } from "@/lib/api";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 const bodySchema = z.object({
   slug: z.string().min(1),
@@ -24,6 +25,14 @@ function isConflictError(error: unknown): boolean {
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+    if (!checkRateLimit(`appointment:${ip}`, 10, 10 * 60 * 1000)) {
+      return NextResponse.json(
+        { error: "Muitas tentativas. Espera um pouco e tenta de novo." },
+        { status: 429 }
+      );
+    }
+
     const body = bodySchema.parse(await req.json());
 
     const business = await prisma.business.findUnique({ where: { slug: body.slug } });

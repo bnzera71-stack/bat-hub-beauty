@@ -9,7 +9,7 @@ export async function getAppSettings() {
     create: {
       id: 1,
       currentPriceCents: 5990,
-      trialDays: 14,
+      trialMinutes: 15,
       supportPixKey: "61998568408",
       supportWhatsapp: "61998568408",
     },

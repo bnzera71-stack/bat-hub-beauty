@@ -49,6 +49,23 @@ export function SuperAdminBusinessRow({
     setLoading(false);
   }
 
+  async function resetPassword() {
+    const confirmed = window.confirm(`Gerar uma senha nova pra dona de "${business.name}"?`);
+    if (!confirmed) return;
+    setLoading(true);
+    const res = await fetch(`/api/superadmin/businesses/${business.id}/reset-password`, { method: "POST" });
+    const data = await res.json();
+    setLoading(false);
+    if (!res.ok) {
+      window.alert(data.error ?? "Não foi possível resetar a senha.");
+      return;
+    }
+    window.prompt(
+      `Senha nova gerada pra ${data.email}. Copia e manda por WhatsApp:`,
+      data.tempPassword
+    );
+  }
+
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
       <div className="min-w-0">
@@ -103,6 +120,13 @@ export function SuperAdminBusinessRow({
             Voltar pro trial
           </button>
         )}
+        <button
+          disabled={loading}
+          onClick={resetPassword}
+          className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50"
+        >
+          Resetar senha
+        </button>
         <button
           disabled={loading}
           onClick={deleteBusiness}

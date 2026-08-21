@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 
+// Sempre busca fresco no banco — qualquer mudança feita em "Agenda online" no
+// painel tem que aparecer na hora aqui, nunca com cache atrasado.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }

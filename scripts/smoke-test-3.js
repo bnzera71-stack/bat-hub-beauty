@@ -50,12 +50,30 @@ async function main() {
 
   await login(owner, email, password);
 
-  // dashboard antes de liberar: HTML inicial não deve conter conteúdo do dashboard
+  function hasDashboard(html) {
+    return html.includes("Primeiros passos") || html.includes(">Hoje<");
+  }
+
+  // logo após o cadastro: ainda dentro da prévia de 15min, dashboard acessível
   res = await owner.req(`/painel/${businessId}/dashboard`);
-  const htmlBeforeActivation = await res.text();
-  const hasDashboardContent = htmlBeforeActivation.includes("Primeiros passos") || htmlBeforeActivation.includes(">Hoje<");
-  console.log("dashboard antes de ativar — tem conteúdo do dashboard?", hasDashboardContent, "(esperado: false)");
-  if (hasDashboardContent) throw new Error("BUG: dashboard acessível sem assinatura ativa!");
+  const htmlDuringTrial = await res.text();
+  console.log("dashboard durante a prévia — tem conteúdo?", hasDashboard(htmlDuringTrial), "(esperado: true)");
+  if (!hasDashboard(htmlDuringTrial)) throw new Error("BUG: prévia de 15min não libera o dashboard!");
+
+  // expira a prévia manualmente (sem esperar 15min de verdade)
+  const { PrismaClient } = require("../src/generated/prisma");
+  const prisma = new PrismaClient();
+  await prisma.subscription.update({
+    where: { businessId },
+    data: { trialEndsAt: new Date(Date.now() - 60_000) },
+  });
+  await prisma.$disconnect();
+
+  // agora deve estar bloqueado
+  res = await owner.req(`/painel/${businessId}/dashboard`);
+  const htmlAfterExpiry = await res.text();
+  console.log("dashboard após prévia expirar — tem conteúdo?", hasDashboard(htmlAfterExpiry), "(esperado: false)");
+  if (hasDashboard(htmlAfterExpiry)) throw new Error("BUG: dashboard continua acessível com prévia expirada!");
 
   // assinatura deve estar acessível normalmente
   res = await owner.req(`/painel/${businessId}/assinatura`);

@@ -1,6 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import { MembershipRole } from "@/generated/prisma";
+import { isSubscriptionUsable } from "@/lib/subscription-status";
 
 // Toda checagem aqui bate no banco na hora, em vez de confiar em role/tenant
 // gravado no JWT — evita que uma permissão revogada continue valendo até o usuário
@@ -60,7 +61,7 @@ export async function requireBusinessAccess(
   // operar a agenda por fora da tela também — só a liberação manual do Super
   // Admin destrava.
   const subscription = await prisma.subscription.findUnique({ where: { businessId } });
-  if (subscription?.status !== "ACTIVE") {
+  if (!isSubscriptionUsable(subscription?.status, subscription?.trialEndsAt)) {
     throw new HttpError(403, "Sua assinatura ainda não foi liberada.");
   }
 
