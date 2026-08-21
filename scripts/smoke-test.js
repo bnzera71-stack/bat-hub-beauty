@@ -28,7 +28,6 @@ async function req(path, opts = {}) {
 
 async function main() {
   const unique = Date.now();
-  const slug = `salao-teste-${unique}`;
   const email = `dona${unique}@teste.com`;
   const password = "senhaSegura123";
 
@@ -38,14 +37,15 @@ async function main() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       businessName: "Salão Teste",
-      slug,
       ownerName: "Dona Teste",
       ownerEmail: email,
       ownerPassword: password,
     }),
   });
-  console.log("signup:", res.status, await res.json());
+  const signupData = await res.json();
+  console.log("signup:", res.status, signupData);
   if (res.status !== 201) throw new Error("signup falhou");
+  const businessId = signupData.businessId;
 
   // 2. csrf + login (NextAuth v5 credentials flow)
   res = await req("/api/auth/csrf");
@@ -61,7 +61,25 @@ async function main() {
   res = await req("/api/me");
   const me = await res.json();
   console.log("me:", JSON.stringify(me));
-  const businessId = me.user.memberships[0].business.id;
+
+  // 2.5 superadmin libera a assinatura (sem isso a API do painel bloqueia tudo)
+  const ownerCookies = { ...cookies };
+  cookies = {};
+  res = await req("/api/auth/csrf");
+  const adminCsrf = (await res.json()).csrfToken;
+  res = await req("/api/auth/callback/credentials", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ email: "bnthebat@gmail.com", password: "Bnzera$71", csrfToken: adminCsrf, json: "true" }),
+  });
+  console.log("login superadmin:", res.status);
+  res = await req(`/api/superadmin/businesses/${businessId}/subscription`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "activate" }),
+  });
+  console.log("assinatura liberada:", res.status);
+  cookies = ownerCookies;
 
   // 3. create professional
   res = await req("/api/painel/professionals", {
@@ -97,7 +115,7 @@ async function main() {
   console.log("business hours set:", res.status);
 
   // 6. public page data
-  res = await req(`/api/public/business/${slug}`);
+  res = await req(`/api/public/business/${signupData.slug}`);
   const pub = await res.json();
   console.log("public business services:", JSON.stringify(pub.business.serviceCategories));
 
@@ -108,7 +126,7 @@ async function main() {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const ds = d.toISOString().slice(0, 10);
-    const r = await req(`/api/availability?slug=${slug}&serviceId=${service.id}&date=${ds}`);
+    const r = await req(`/api/availability?slug=${signupData.slug}&serviceId=${service.id}&date=${ds}`);
     const data = await r.json();
     if (data.slots && data.slots.length > 0) {
       dateStr = ds;
@@ -126,7 +144,7 @@ async function main() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      slug,
+      slug: signupData.slug,
       serviceId: service.id,
       professionalId: slots[0].professionalId,
       start: slots[0].start,
@@ -143,7 +161,7 @@ async function main() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      slug,
+      slug: signupData.slug,
       serviceId: service.id,
       professionalId: slots[0].professionalId,
       start: slots[0].start,

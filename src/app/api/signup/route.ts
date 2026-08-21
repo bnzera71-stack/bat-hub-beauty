@@ -19,17 +19,20 @@ export async function POST(req: NextRequest) {
     const body = bodySchema.parse(await req.json());
     const email = body.ownerEmail.toLowerCase().trim();
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    // Consultas independentes rodando em paralelo (não uma atrás da outra) pra não
+    // somar latência à toa — cadastro precisa ser rápido.
+    const [existingUser, slug, settings, passwordHash] = await Promise.all([
+      prisma.user.findUnique({ where: { email } }),
+      // Link provisório — a dona escolhe o definitivo em Configurações, quando
+      // estiver pronta pra divulgar (evita pedir isso antes de ela ver o produto).
+      generateUniqueSlug(body.businessName),
+      getAppSettings(),
+      bcrypt.hash(body.ownerPassword, 12),
+    ]);
+
     if (existingUser) {
       return NextResponse.json({ error: "Este e-mail já está cadastrado." }, { status: 409 });
     }
-
-    // Link provisório — a dona escolhe o definitivo em Configurações, quando
-    // estiver pronta pra divulgar (evita pedir isso antes de ela ver o produto).
-    const slug = await generateUniqueSlug(body.businessName);
-
-    const settings = await getAppSettings();
-    const passwordHash = await bcrypt.hash(body.ownerPassword, 12);
 
     const userId = crypto.randomUUID();
     const businessId = crypto.randomUUID();
@@ -57,7 +60,7 @@ export async function POST(req: NextRequest) {
       }),
     ]);
 
-    return NextResponse.json({ slug: business.slug }, { status: 201 });
+    return NextResponse.json({ slug: business.slug, businessId: business.id }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message ?? "Dados inválidos." }, { status: 400 });

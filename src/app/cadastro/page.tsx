@@ -44,8 +44,7 @@ export default function CadastroPage() {
       return;
     }
 
-    const me = await fetch("/api/me").then((r) => r.json());
-    router.push(`/painel/${me.user.memberships[0].business.id}/dashboard`);
+    router.push(`/painel/${data.businessId}/assinatura`);
   }
 
   return (

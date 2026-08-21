@@ -140,6 +140,8 @@ export async function POST(req: NextRequest) {
     await emitAppointmentEvent("appointment.created", body.businessId, {
       appointmentId: appointment.id,
       startAt: appointment.startAt,
+      customerName: body.customerName,
+      serviceName: service.name,
       source: "MANUAL",
     });
 

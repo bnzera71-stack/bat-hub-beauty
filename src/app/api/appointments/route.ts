@@ -99,6 +99,8 @@ export async function POST(req: NextRequest) {
     await emitAppointmentEvent("appointment.created", business.id, {
       appointmentId: appointment.id,
       startAt: appointment.startAt,
+      customerName: body.customerName,
+      serviceName: service.name,
     });
 
     return NextResponse.json({ appointment }, { status: 201 });

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
+import { NotificationBell } from "@/components/notification-bell";
 
 const NAV_ITEMS = [
   { href: "dashboard", label: "Dashboard" },
@@ -35,28 +36,41 @@ export function PainelShell({
   businessName,
   userName,
   role,
+  subscriptionActive,
   children,
 }: {
   businessId: string;
   businessName: string;
   userName: string;
   role: string;
+  subscriptionActive: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isMoreActive = MORE_ITEMS.some((item) => pathname?.startsWith(`/painel/${businessId}/${item.href}`));
+  const assinaturaHref = `/painel/${businessId}/assinatura`;
+  const isAssinaturaPage = pathname?.startsWith(assinaturaHref);
+  const gated = !subscriptionActive && !isAssinaturaPage;
+
+  useEffect(() => {
+    if (gated) router.replace(assinaturaHref);
+  }, [gated, assinaturaHref, router]);
+
+  if (gated) return null;
 
   return (
     <div className="flex min-h-dvh w-full">
       <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col bg-panel-dark p-4 md:flex">
         <div className="mb-6 flex items-center gap-2">
           <Image src="/logo-hub-beauty.png" alt="Hub Beauty" width={32} height={32} className="rounded-lg" />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-panel-dark-foreground">{businessName}</p>
             <p className="truncate text-xs text-white/40">{userName}</p>
           </div>
+          <NotificationBell businessId={businessId} />
         </div>
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) => {
@@ -90,6 +104,7 @@ export function PainelShell({
         >
           <Image src="/logo-hub-beauty.png" alt="Hub Beauty" width={26} height={26} className="rounded-md shrink-0" />
           <p className="min-w-0 flex-1 truncate text-sm font-semibold text-panel-dark-foreground">{businessName}</p>
+          <NotificationBell businessId={businessId} />
         </header>
 
         <main className="flex-1 bg-zinc-50 p-4 pb-24 md:p-8 md:pb-8">{children}</main>

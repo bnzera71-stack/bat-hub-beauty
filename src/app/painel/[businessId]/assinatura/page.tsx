@@ -11,7 +11,7 @@ function formatWhatsappLink(phone: string, message: string) {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  TRIAL: "Período de teste",
+  TRIAL: "Aguardando liberação",
   ACTIVE: "Ativo",
   PAST_DUE: "Pagamento atrasado",
   CANCELLED: "Cancelado",
@@ -35,17 +35,21 @@ export default async function AssinaturaPage({
 
   return (
     <div className="max-w-md space-y-4">
+      {status !== "ACTIVE" && (
+        <div className="rounded-xl border border-accent/20 bg-accent/5 p-4">
+          <p className="text-sm font-semibold text-zinc-900">Sua conta foi criada 🎉</p>
+          <p className="mt-1 text-sm text-zinc-600">
+            Falta só ativar a assinatura pra liberar o painel e a página de agendamento.
+          </p>
+        </div>
+      )}
+
       <h1 className="text-xl font-semibold">Hub Beauty</h1>
       <div className="rounded-xl border border-zinc-200 bg-white p-5">
         <p className="text-2xl font-semibold">{priceLabel}/mês</p>
         <p className="mt-1 text-sm text-zinc-600">
           Status: <span className="font-medium">{STATUS_LABEL[status]}</span>
         </p>
-        {status === "TRIAL" && subscription?.trialEndsAt && (
-          <p className="mt-1 text-sm text-zinc-600">
-            Seu teste grátis termina em {subscription.trialEndsAt.toLocaleDateString("pt-BR")}.
-          </p>
-        )}
         {status === "ACTIVE" && subscription?.currentPeriodEnd && (
           <p className="mt-1 text-sm text-zinc-600">
             Acesso liberado até {subscription.currentPeriodEnd.toLocaleDateString("pt-BR")}.

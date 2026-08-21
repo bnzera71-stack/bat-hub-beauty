@@ -56,6 +56,14 @@ export async function requireBusinessAccess(
     throw new HttpError(403, "Você não tem acesso a este negócio.");
   }
 
+  // Espelha o gate do painel (PainelShell): sem assinatura ativa, nada de
+  // operar a agenda por fora da tela também — só a liberação manual do Super
+  // Admin destrava.
+  const subscription = await prisma.subscription.findUnique({ where: { businessId } });
+  if (subscription?.status !== "ACTIVE") {
+    throw new HttpError(403, "Sua assinatura ainda não foi liberada.");
+  }
+
   return { userId, role: membership.role, isSuperAdmin: false };
 }
 
