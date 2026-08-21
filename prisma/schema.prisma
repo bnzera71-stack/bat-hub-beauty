@@ -47,6 +47,7 @@ model Business {
   appointments      Appointment[]
   subscription      Subscription?
   notifications     Notification[]
+  pushSubscriptions PushSubscription[]
   auditLogs         AuditLog[]
   feedback          Feedback[]
 
@@ -73,9 +74,10 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships  Membership[]
-  professional Professional?
-  auditLogs    AuditLog[]
+  memberships       Membership[]
+  professional      Professional?
+  auditLogs         AuditLog[]
+  pushSubscriptions PushSubscription[]
 }
 
 model Membership {
@@ -350,6 +352,23 @@ model Notification {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId, readAt])
+}
+
+// Notificação push de verdade (cai no celular, mesmo com o app fechado).
+// Um registro por navegador/dispositivo que autorizou.
+model PushSubscription {
+  id        String   @id @default(cuid())
+  businessId String
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
 }
 
 model AuditLog {

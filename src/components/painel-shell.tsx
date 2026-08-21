@@ -8,6 +8,7 @@ import { signOut } from "next-auth/react";
 import { AnimatePresence, motion } from "motion/react";
 import { NotificationBell } from "@/components/notification-bell";
 import { OnboardingTour } from "@/components/onboarding-tour";
+import { PushNotificationSetup } from "@/components/push-notification-setup";
 import { isSubscriptionUsable } from "@/lib/subscription-status";
 
 function formatCountdown(ms: number): string {
@@ -144,6 +145,8 @@ export function PainelShell({
             </Link>
           </div>
         )}
+
+        {mounted && !isAssinaturaPage && <PushNotificationSetup businessId={businessId} />}
 
         <main className="flex-1 overflow-y-auto overscroll-contain bg-zinc-50 p-4 pb-24 md:p-8 md:pb-8">{children}</main>
 
