@@ -3,7 +3,7 @@ generator client {
   output        = "../src/generated/prisma"
   // "native" cobre Windows local; os outros cobrem o runtime Linux das functions
   // do Netlify — sem isso o client funciona local mas quebra em produção.
-  binaryTargets = ["native", "rhel-openssl-3.0.x", "rhel-openssl-1.0.x", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
