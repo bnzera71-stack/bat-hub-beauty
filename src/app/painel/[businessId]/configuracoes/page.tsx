@@ -30,6 +30,10 @@ export default function ConfiguracoesPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editingSlug, setEditingSlug] = useState(false);
+  const [slugInput, setSlugInput] = useState("");
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [savingSlug, setSavingSlug] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,6 +97,26 @@ export default function ConfiguracoesPage({
     setTimeout(() => setCopied(false), 2000);
   }
 
+  async function saveSlug() {
+    if (!business) return;
+    setSavingSlug(true);
+    setSlugError(null);
+    const res = await fetch("/api/painel/business", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessId, slug: slugInput }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setSlugError(data.error ?? "Não foi possível salvar.");
+      setSavingSlug(false);
+      return;
+    }
+    setBusiness(data.business);
+    setEditingSlug(false);
+    setSavingSlug(false);
+  }
+
   if (loading || !business) return <p className="text-sm text-zinc-500">Carregando...</p>;
 
   return (
@@ -101,17 +125,60 @@ export default function ConfiguracoesPage({
 
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-zinc-900">Seu link de agendamento</h2>
-        <div className="flex items-center gap-2">
-          <code className="flex-1 truncate rounded-lg bg-zinc-100 px-3 py-2 text-sm">
-            {typeof window !== "undefined" ? window.location.origin : ""}/{business.slug}
-          </code>
-          <button
-            onClick={copyLink}
-            className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
-          >
-            {copied ? "Copiado!" : "Copiar"}
-          </button>
-        </div>
+        {!editingSlug ? (
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate rounded-lg bg-zinc-100 px-3 py-2 text-sm">
+              {typeof window !== "undefined" ? window.location.origin : ""}/{business.slug}
+            </code>
+            <button
+              onClick={copyLink}
+              className="shrink-0 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
+            >
+              {copied ? "Copiado!" : "Copiar"}
+            </button>
+            <button
+              onClick={() => {
+                setSlugInput(business.slug);
+                setSlugError(null);
+                setEditingSlug(true);
+              }}
+              className="shrink-0 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
+            >
+              Editar
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex items-center rounded-lg border border-zinc-300 px-3 py-2 focus-within:border-accent">
+              <span className="shrink-0 text-sm text-zinc-500">
+                {typeof window !== "undefined" ? window.location.origin : ""}/
+              </span>
+              <input
+                value={slugInput}
+                onChange={(e) =>
+                  setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+                }
+                className="min-w-0 flex-1 outline-none"
+              />
+            </div>
+            {slugError && <p className="text-sm text-red-600">{slugError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={saveSlug}
+                disabled={savingSlug}
+                className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-60"
+              >
+                {savingSlug ? "Salvando..." : "Salvar link"}
+              </button>
+              <button
+                onClick={() => setEditingSlug(false)}
+                className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">

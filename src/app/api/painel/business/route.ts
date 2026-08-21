@@ -24,6 +24,12 @@ export async function GET(req: NextRequest) {
 
 const updateSchema = z.object({
   businessId: z.string().min(1),
+  slug: z
+    .string()
+    .min(3)
+    .max(60)
+    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use letras minúsculas, números e hífen.")
+    .optional(),
   name: z.string().min(2).max(120).optional(),
   description: z.string().max(500).nullable().optional(),
   logoUrl: z.string().url().nullable().optional(),
@@ -42,6 +48,13 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = updateSchema.parse(await req.json());
     await requireBusinessAccess(body.businessId, ["OWNER", "MANAGER"]);
+
+    if (body.slug) {
+      const existing = await prisma.business.findUnique({ where: { slug: body.slug } });
+      if (existing && existing.id !== body.businessId) {
+        return NextResponse.json({ error: "Esse link já está em uso, escolha outro." }, { status: 409 });
+      }
+    }
 
     const { businessId, ...data } = body;
     const business = await prisma.business.update({ where: { id: businessId }, data });

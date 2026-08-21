@@ -6,20 +6,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthPageShell } from "@/components/auth-page-shell";
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
-
 export default function CadastroPage() {
   const router = useRouter();
   const [businessName, setBusinessName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
@@ -34,7 +23,7 @@ export default function CadastroPage() {
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessName, slug, ownerName, ownerEmail, ownerPassword }),
+      body: JSON.stringify({ businessName, ownerName, ownerEmail, ownerPassword }),
     });
     const data = await res.json();
 
@@ -72,28 +61,12 @@ export default function CadastroPage() {
           <input
             required
             value={businessName}
-            onChange={(e) => {
-              setBusinessName(e.target.value);
-              if (!slugTouched) setSlug(slugify(e.target.value));
-            }}
+            onChange={(e) => setBusinessName(e.target.value)}
             className="w-full rounded-lg border border-zinc-300 px-3 py-2 outline-none focus:border-accent"
           />
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-zinc-700">Seu link de agendamento</label>
-          <div className="flex items-center rounded-lg border border-zinc-300 px-3 py-2 focus-within:border-accent">
-            <span className="text-sm text-zinc-500">hubbeauty.com.br/</span>
-            <input
-              required
-              value={slug}
-              onChange={(e) => {
-                setSlug(slugify(e.target.value));
-                setSlugTouched(true);
-              }}
-              className="flex-1 outline-none"
-            />
-          </div>
+          <p className="text-xs text-zinc-500">
+            O link de agendamento você escolhe depois, em Configurações — quando estiver pronta pra divulgar.
+          </p>
         </div>
 
         <div className="space-y-1">

@@ -4,15 +4,11 @@ import bcrypt from "bcryptjs";
 import { addDays } from "date-fns";
 import { prisma } from "@/lib/db";
 import { getAppSettings } from "@/lib/settings";
+import { generateUniqueSlug } from "@/lib/slug";
 import { errorResponse } from "@/lib/api";
 
 const bodySchema = z.object({
   businessName: z.string().min(2).max(120),
-  slug: z
-    .string()
-    .min(3)
-    .max(60)
-    .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/, "Use letras minúsculas, números e hífen."),
   ownerName: z.string().min(2).max(120),
   ownerEmail: z.string().email(),
   ownerPassword: z.string().min(8, "Mínimo 8 caracteres."),
@@ -22,27 +18,19 @@ export async function POST(req: NextRequest) {
   try {
     const body = bodySchema.parse(await req.json());
     const email = body.ownerEmail.toLowerCase().trim();
-    const slug = body.slug.toLowerCase().trim();
 
-    const [existingUser, existingSlug] = await Promise.all([
-      prisma.user.findUnique({ where: { email } }),
-      prisma.business.findUnique({ where: { slug } }),
-    ]);
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return NextResponse.json({ error: "Este e-mail já está cadastrado." }, { status: 409 });
     }
-    if (existingSlug) {
-      return NextResponse.json({ error: "Este link já está em uso, escolha outro." }, { status: 409 });
-    }
+
+    // Link provisório — a dona escolhe o definitivo em Configurações, quando
+    // estiver pronta pra divulgar (evita pedir isso antes de ela ver o produto).
+    const slug = await generateUniqueSlug(body.businessName);
 
     const settings = await getAppSettings();
     const passwordHash = await bcrypt.hash(body.ownerPassword, 12);
 
-    // IDs gerados aqui (em vez de deixar o Prisma gerar durante o create) porque o
-    // pooler do Supabase (porta 6543, transaction mode) não sustenta transaction
-    // interativa (`$transaction(async tx => ...)`) — cada round-trip pode cair em
-    // outra conexão do pool. Gerando os IDs antes, dá pra usar `$transaction([...])`
-    // em lote (um único round-trip), que funciona bem com pgbouncer.
     const userId = crypto.randomUUID();
     const businessId = crypto.randomUUID();
 
@@ -68,9 +56,8 @@ export async function POST(req: NextRequest) {
         data: { businessId, userId, action: "business.created" },
       }),
     ]);
-    const result = { business };
 
-    return NextResponse.json({ slug: result.business.slug }, { status: 201 });
+    return NextResponse.json({ slug: business.slug }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues[0]?.message ?? "Dados inválidos." }, { status: 400 });
