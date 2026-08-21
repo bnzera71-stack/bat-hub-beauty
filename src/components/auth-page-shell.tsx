@@ -7,7 +7,7 @@ import { WhatsappBubble } from "@/components/whatsapp-bubble";
 
 export function AuthPageShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 py-10">
+    <div className="relative flex min-h-dvh w-full flex-1 items-center justify-center overflow-hidden px-4 py-10">
       <FlowBackground />
       <WhatsappBubble />
 

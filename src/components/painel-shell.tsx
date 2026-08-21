@@ -31,7 +31,7 @@ export function PainelShell({
   const pathname = usePathname();
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex min-h-dvh w-full">
       <aside className="hidden w-60 shrink-0 flex-col bg-panel-dark p-4 md:flex">
         <div className="mb-6 flex items-center gap-2">
           <Image src="/logo-hub-beauty.png" alt="Hub Beauty" width={32} height={32} className="rounded-lg" />

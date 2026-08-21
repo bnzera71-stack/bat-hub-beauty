@@ -23,7 +23,7 @@ export default async function SuperAdminPage() {
     .reduce((sum, b) => sum + (b.subscription?.priceCents ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-zinc-50">
+    <div className="min-h-dvh bg-zinc-50">
       <SuperAdminHeader />
       <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

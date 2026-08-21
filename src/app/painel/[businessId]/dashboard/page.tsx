@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 
 function formatBRL(cents: number) {
   return (cents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -17,15 +18,21 @@ export default async function DashboardPage({
   const dayEnd = new Date(now);
   dayEnd.setHours(23, 59, 59, 999);
 
-  const todayAppointments = await prisma.appointment.findMany({
-    where: { businessId, startAt: { gte: dayStart, lte: dayEnd } },
-    include: {
-      customer: { select: { name: true } },
-      professional: { select: { name: true } },
-      service: { select: { name: true, priceCents: true } },
-    },
-    orderBy: { startAt: "asc" },
-  });
+  const [todayAppointments, business, hoursCount, servicesCount, professionalsCount] = await Promise.all([
+    prisma.appointment.findMany({
+      where: { businessId, startAt: { gte: dayStart, lte: dayEnd } },
+      include: {
+        customer: { select: { name: true } },
+        professional: { select: { name: true } },
+        service: { select: { name: true, priceCents: true } },
+      },
+      orderBy: { startAt: "asc" },
+    }),
+    prisma.business.findUnique({ where: { id: businessId }, select: { slug: true } }),
+    prisma.businessHours.count({ where: { businessId } }),
+    prisma.service.count({ where: { businessId, active: true } }),
+    prisma.professional.count({ where: { businessId, active: true } }),
+  ]);
 
   const pending = todayAppointments.filter((a) => a.status === "PENDING").length;
   const completed = todayAppointments.filter((a) => a.status === "COMPLETED");
@@ -37,6 +44,16 @@ export default async function DashboardPage({
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">Hoje</h1>
+
+      {business && (
+        <OnboardingChecklist
+          businessId={businessId}
+          slug={business.slug}
+          hasHours={hoursCount > 0}
+          hasServices={servicesCount > 0}
+          hasProfessionals={professionalsCount > 0}
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Agendamentos hoje" value={todayAppointments.length} />
