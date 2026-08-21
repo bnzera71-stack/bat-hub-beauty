@@ -9,6 +9,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { NotificationBell } from "@/components/notification-bell";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { PushNotificationSetup } from "@/components/push-notification-setup";
+import { InstallAppGuide } from "@/components/install-app-guide";
 import { isSubscriptionUsable } from "@/lib/subscription-status";
 
 function formatCountdown(ms: number): string {
@@ -102,6 +103,16 @@ export function PainelShell({
           </div>
           <NotificationBell businessId={businessId} />
         </div>
+        <InstallAppGuide
+          trigger={(show) => (
+            <button
+              onClick={show}
+              className="mb-1 rounded-lg px-3 py-2 text-left text-sm font-medium text-white/70 hover:bg-white/10"
+            >
+              Instalar no celular
+            </button>
+          )}
+        />
         <nav className="flex flex-1 flex-col gap-1">
           {NAV_ITEMS.map((item) => {
             const href = `/painel/${businessId}/${item.href}`;
@@ -216,6 +227,19 @@ export function PainelShell({
                     </Link>
                   );
                 })}
+                <InstallAppGuide
+                  trigger={(show) => (
+                    <button
+                      onClick={() => {
+                        setMoreOpen(false);
+                        show();
+                      }}
+                      className="rounded-lg px-3 py-3 text-left text-sm font-medium text-white/80 hover:bg-white/10"
+                    >
+                      Instalar no celular
+                    </button>
+                  )}
+                />
                 <button
                   onClick={() => signOut({ callbackUrl: "/login" })}
                   className="mt-2 rounded-lg border-t border-white/10 px-3 py-3 text-left text-sm font-medium text-white/50"
