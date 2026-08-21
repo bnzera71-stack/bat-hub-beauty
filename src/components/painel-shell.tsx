@@ -61,15 +61,22 @@ export function PainelShell({
   // Só existe pra forçar o componente a recalcular a cada segundo enquanto o
   // teste de 15 minutos está correndo — o valor em si não é usado direto.
   const [, setTick] = useState(0);
+  // "Date.now()" dá valores diferentes no servidor e no navegador — sem esperar
+  // montar, o React acusa erro de hydration (texto do contador não bate).
+  const [mounted, setMounted] = useState(false);
 
   const isMoreActive = MORE_ITEMS.some((item) => pathname?.startsWith(`/painel/${businessId}/${item.href}`));
   const assinaturaHref = `/painel/${businessId}/assinatura`;
   const isAssinaturaPage = pathname?.startsWith(assinaturaHref);
 
   const trialMsLeft = trialEndsAt ? new Date(trialEndsAt).getTime() - Date.now() : 0;
-  const onTrialCountdown = subscriptionStatus === "TRIAL" && trialMsLeft > 0;
+  const onTrialCountdown = mounted && subscriptionStatus === "TRIAL" && trialMsLeft > 0;
   const usable = isSuperAdmin || isSubscriptionUsable(subscriptionStatus, trialEndsAt);
   const gated = !usable && !isAssinaturaPage;
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!onTrialCountdown) return;
