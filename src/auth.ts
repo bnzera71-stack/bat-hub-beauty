@@ -6,6 +6,9 @@ import { prisma } from "@/lib/db";
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   secret: process.env.NEXTAUTH_SECRET,
+  // Necessário fora da Vercel (Netlify, etc) — sem isso o NextAuth v5 rejeita o
+  // host da requisição em produção com "UntrustedHost" e o login vira 500.
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
