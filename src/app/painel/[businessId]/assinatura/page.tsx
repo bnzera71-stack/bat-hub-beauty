@@ -11,6 +11,13 @@ function formatWhatsappLink(phone: string, message: string) {
   return `https://wa.me/55${digits}?text=${encodeURIComponent(message)}`;
 }
 
+function formatTrialEnd(date: Date) {
+  const time = date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const sameDay = date.toDateString() === new Date().toDateString();
+  if (sameDay) return `hoje às ${time}`;
+  return `${date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às ${time}`;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   TRIAL: "Aguardando liberação",
   ACTIVE: "Ativo",
@@ -43,9 +50,7 @@ export default async function AssinaturaPage({
         <div className="rounded-xl border border-accent/20 bg-accent/5 p-4">
           <p className="text-sm font-semibold text-zinc-900">Você está numa prévia rápida do Hub Beauty</p>
           <p className="mt-1 text-sm text-zinc-600">
-            Dá uma olhada no painel — a prévia termina às{" "}
-            {trialEndsAt!.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. Gostou? Ative
-            embaixo.
+            Dá uma olhada no painel — a prévia termina {formatTrialEnd(trialEndsAt!)}. Gostou? Ative embaixo.
           </p>
         </div>
       ) : (
@@ -77,7 +82,7 @@ export default async function AssinaturaPage({
         )}
       </div>
 
-      {status !== "ACTIVE" && settings.supportPixKey && (
+      {status !== "ACTIVE" && !trialStillRunning && settings.supportPixKey && (
         <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5">
           <div>
             <h2 className="text-sm font-semibold text-zinc-900">Como ativar</h2>

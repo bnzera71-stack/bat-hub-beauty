@@ -6,7 +6,8 @@ import { requireSuperAdmin } from "@/lib/tenant";
 import { errorResponse } from "@/lib/api";
 
 const bodySchema = z.object({
-  action: z.enum(["activate", "suspend", "cancel", "back_to_trial"]),
+  action: z.enum(["activate", "suspend", "cancel", "back_to_trial", "extend_trial"]),
+  days: z.number().int().min(1).max(30).optional(),
 });
 
 // Ativação manual (seção "Ativação manual + gateway depois" do plano): a dona do
@@ -45,6 +46,12 @@ export async function PATCH(
         break;
       case "back_to_trial":
         data = { status: "TRIAL", cancelledAt: null };
+        break;
+      case "extend_trial":
+        // Prévia de demonstração pra cliente em prospecção — dias a mais só nesse
+        // negócio específico, sem tocar no trialMinutes padrão (que é curto de
+        // propósito, contra abuso de cadastro público).
+        data = { status: "TRIAL", trialEndsAt: addDays(now, body.days ?? 3), cancelledAt: null };
         break;
     }
 

@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+function formatDuration(ms: number): string {
+  const minutes = Math.ceil(ms / 60000);
+  if (minutes < 60) return `${minutes}min`;
+  const hours = Math.ceil(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.ceil(hours / 24)}d`;
+}
+
 const STATUS_LABEL: Record<string, string> = {
   TRIAL: "Trial",
   ACTIVE: "Ativo",
@@ -22,21 +30,33 @@ export function SuperAdminBusinessRow({
     appointmentCount: number;
     subscriptionStatus: string;
     currentPeriodEnd: string | null;
+    trialEndsAt: string | null;
   };
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  async function runAction(action: "activate" | "suspend" | "cancel" | "back_to_trial") {
+  async function runAction(
+    action: "activate" | "suspend" | "cancel" | "back_to_trial" | "extend_trial",
+    extra?: { days?: number }
+  ) {
     setLoading(true);
     await fetch(`/api/superadmin/businesses/${business.id}/subscription`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
+      body: JSON.stringify({ action, ...extra }),
     });
     router.refresh();
     setLoading(false);
   }
+
+  const trialMsLeft = business.trialEndsAt ? new Date(business.trialEndsAt).getTime() - Date.now() : 0;
+  const trialRunning = business.subscriptionStatus === "TRIAL" && trialMsLeft > 0;
+  const trialLabel = !business.trialEndsAt
+    ? null
+    : trialRunning
+      ? `prévia acaba em ${formatDuration(trialMsLeft)}`
+      : "prévia expirada";
 
   async function deleteBusiness() {
     const confirmed = window.confirm(
@@ -77,6 +97,7 @@ export function SuperAdminBusinessRow({
           {business.currentPeriodEnd && business.subscriptionStatus === "ACTIVE" && (
             <> · até {new Date(business.currentPeriodEnd).toLocaleDateString("pt-BR")}</>
           )}
+          {trialLabel && <> · {trialLabel}</>}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -118,6 +139,15 @@ export function SuperAdminBusinessRow({
             className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50"
           >
             Voltar pro trial
+          </button>
+        )}
+        {business.subscriptionStatus === "TRIAL" && (
+          <button
+            disabled={loading}
+            onClick={() => runAction("extend_trial", { days: 3 })}
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100 disabled:opacity-50"
+          >
+            Estender prévia +3d
           </button>
         )}
         <button

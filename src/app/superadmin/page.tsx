@@ -16,8 +16,14 @@ export default async function SuperAdminPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const now = Date.now();
   const active = businesses.filter((b) => b.subscription?.status === "ACTIVE").length;
-  const trial = businesses.filter((b) => b.subscription?.status === "TRIAL").length;
+  const trialRunning = businesses.filter(
+    (b) => b.subscription?.status === "TRIAL" && b.subscription.trialEndsAt && b.subscription.trialEndsAt.getTime() > now
+  ).length;
+  const trialExpired = businesses.filter(
+    (b) => b.subscription?.status === "TRIAL" && (!b.subscription.trialEndsAt || b.subscription.trialEndsAt.getTime() <= now)
+  ).length;
   const mrrCents = businesses
     .filter((b) => b.subscription?.status === "ACTIVE")
     .reduce((sum, b) => sum + (b.subscription?.priceCents ?? 0), 0);
@@ -26,10 +32,11 @@ export default async function SuperAdminPage() {
     <div className="min-h-dvh bg-zinc-50">
       <SuperAdminHeader />
       <div className="mx-auto max-w-4xl space-y-6 p-4 sm:p-6">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <Stat label="Negócios" value={businesses.length} />
           <Stat label="Assinaturas ativas" value={active} />
-          <Stat label="Em trial" value={trial} />
+          <Stat label="Prévia rolando agora" value={trialRunning} />
+          <Stat label="Prévia expirada" value={trialExpired} />
           <Stat label="MRR" value={(mrrCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />
         </div>
 
@@ -44,6 +51,7 @@ export default async function SuperAdminPage() {
                 appointmentCount: b._count.appointments,
                 subscriptionStatus: b.subscription?.status ?? "TRIAL",
                 currentPeriodEnd: b.subscription?.currentPeriodEnd?.toISOString() ?? null,
+                trialEndsAt: b.subscription?.trialEndsAt?.toISOString() ?? null,
               }}
             />
           ))}
