@@ -32,7 +32,10 @@ type BlockedPeriod = {
   startAt: string;
   endAt: string;
   reason: string | null;
+  batchId: string | null;
 };
+
+const WEEKDAY_SHORT = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
@@ -76,6 +79,13 @@ export default function ConfiguracoesPage({
   const [blockReason, setBlockReason] = useState("");
   const [savingBlock, setSavingBlock] = useState(false);
   const [blockError, setBlockError] = useState<string | null>(null);
+
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurStartDate, setRecurStartDate] = useState("");
+  const [recurEndDate, setRecurEndDate] = useState("");
+  const [recurDays, setRecurDays] = useState<number[]>([]);
+  const [recurStartTime, setRecurStartTime] = useState("12:00");
+  const [recurEndTime, setRecurEndTime] = useState("13:00");
 
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [editProfessionalId, setEditProfessionalId] = useState("");
@@ -234,8 +244,74 @@ export default function ConfiguracoesPage({
 
   async function addBlock(e: React.FormEvent) {
     e.preventDefault();
-    if (!blockStart || !blockEnd) return;
     setBlockError(null);
+
+    if (isRecurring) {
+      if (!recurStartDate || !recurEndDate || recurDays.length === 0) {
+        setBlockError("Preencha as datas e escolha pelo menos um dia da semana.");
+        return;
+      }
+      if (recurEndTime <= recurStartTime) {
+        setBlockError("O fim precisa ser depois do início.");
+        return;
+      }
+
+      // calcula os instantes aqui no navegador — é ele que sabe o fuso horário
+      // real de quem está preenchendo o formulário (o servidor não tem por que
+      // rodar no mesmo fuso do salão).
+      const daySet = new Set(recurDays);
+      const occurrences: { startAt: string; endAt: string }[] = [];
+      const cursor = new Date(`${recurStartDate}T00:00:00`);
+      const end = new Date(`${recurEndDate}T00:00:00`);
+      while (cursor <= end && occurrences.length <= 366) {
+        if (daySet.has(cursor.getDay())) {
+          const y = cursor.getFullYear();
+          const m = String(cursor.getMonth() + 1).padStart(2, "0");
+          const d = String(cursor.getDate()).padStart(2, "0");
+          occurrences.push({
+            startAt: new Date(`${y}-${m}-${d}T${recurStartTime}:00`).toISOString(),
+            endAt: new Date(`${y}-${m}-${d}T${recurEndTime}:00`).toISOString(),
+          });
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      if (occurrences.length === 0) {
+        setBlockError("Nenhum dia da semana escolhido cai nesse período.");
+        return;
+      }
+      if (occurrences.length > 366) {
+        setBlockError("Esse período gera mais de 366 bloqueios. Reduza o intervalo.");
+        return;
+      }
+
+      setSavingBlock(true);
+      const res = await fetch("/api/painel/blocked-periods/recurring", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId,
+          professionalId: blockProfessionalId || undefined,
+          occurrences,
+          reason: blockReason || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBlockError(data.error ?? "Não foi possível salvar o bloqueio recorrente.");
+        setSavingBlock(false);
+        return;
+      }
+      setBlockProfessionalId("");
+      setRecurStartDate("");
+      setRecurEndDate("");
+      setRecurDays([]);
+      setBlockReason("");
+      await load();
+      setSavingBlock(false);
+      return;
+    }
+
+    if (!blockStart || !blockEnd) return;
     const startAt = new Date(blockStart);
     const endAt = new Date(blockEnd);
     if (endAt <= startAt) {
@@ -268,9 +344,18 @@ export default function ConfiguracoesPage({
     setSavingBlock(false);
   }
 
+  function toggleRecurDay(day: number) {
+    setRecurDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+  }
+
   async function removeBlock(id: string) {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
     await fetch(`/api/painel/blocked-periods/${id}?businessId=${businessId}`, { method: "DELETE" });
+  }
+
+  async function removeBatch(batchId: string) {
+    setBlocks((prev) => prev.filter((b) => b.batchId !== batchId));
+    await fetch(`/api/painel/blocked-periods/batch/${batchId}?businessId=${businessId}`, { method: "DELETE" });
   }
 
   function toDatetimeLocal(iso: string) {
@@ -335,6 +420,35 @@ export default function ConfiguracoesPage({
       return `${start.toLocaleDateString("pt-BR", dateFmt)} · ${start.toLocaleTimeString("pt-BR", timeFmt)} às ${end.toLocaleTimeString("pt-BR", timeFmt)}`;
     }
     return `${start.toLocaleDateString("pt-BR", dateFmt)} ${start.toLocaleTimeString("pt-BR", timeFmt)} até ${end.toLocaleDateString("pt-BR", dateFmt)} ${end.toLocaleTimeString("pt-BR", timeFmt)}`;
+  }
+
+  type BlockGroup =
+    | { type: "single"; block: BlockedPeriod }
+    | { type: "batch"; batchId: string; items: BlockedPeriod[] };
+
+  const blockGroups: BlockGroup[] = [];
+  const seenBatches = new Set<string>();
+  for (const b of blocks) {
+    if (!b.batchId) {
+      blockGroups.push({ type: "single", block: b });
+      continue;
+    }
+    if (seenBatches.has(b.batchId)) continue;
+    seenBatches.add(b.batchId);
+    blockGroups.push({ type: "batch", batchId: b.batchId, items: blocks.filter((x) => x.batchId === b.batchId) });
+  }
+
+  function formatBatchSummary(items: BlockedPeriod[]) {
+    const sorted = [...items].sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime());
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const days = Array.from(new Set(sorted.map((i) => new Date(i.startAt).getDay()))).sort();
+    const dayLabels = days.map((d) => WEEKDAY_SHORT[d]).join(", ");
+    const timeFmt: Intl.DateTimeFormatOptions = { hour: "2-digit", minute: "2-digit" };
+    const dateFmt: Intl.DateTimeFormatOptions = { day: "2-digit", month: "2-digit" };
+    const time = `${new Date(first.startAt).toLocaleTimeString("pt-BR", timeFmt)} às ${new Date(first.endAt).toLocaleTimeString("pt-BR", timeFmt)}`;
+    const range = `${new Date(first.startAt).toLocaleDateString("pt-BR", dateFmt)} até ${new Date(last.startAt).toLocaleDateString("pt-BR", dateFmt)}`;
+    return `${dayLabels} · ${time} · ${range} (${items.length}x)`;
   }
 
   if (loading || !business) return <p className="text-sm text-zinc-500">Carregando...</p>;
@@ -713,26 +827,97 @@ export default function ConfiguracoesPage({
               ))}
             </select>
           )}
-          <div className="flex flex-wrap gap-2">
-            <div className="min-w-0 flex-1 space-y-1">
-              <label className="text-xs font-medium text-zinc-600">Início</label>
-              <input
-                type="datetime-local"
-                value={blockStart}
-                onChange={(e) => setBlockStart(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-              />
+
+          <label className="flex items-center gap-2 text-sm text-zinc-700">
+            <input type="checkbox" checked={isRecurring} onChange={(e) => setIsRecurring(e.target.checked)} />
+            Repetir toda semana (ex: horário de almoço)
+          </label>
+
+          {isRecurring ? (
+            <>
+              <div className="flex flex-wrap gap-2">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <label className="text-xs font-medium text-zinc-600">De</label>
+                  <input
+                    type="date"
+                    value={recurStartDate}
+                    onChange={(e) => setRecurStartDate(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <label className="text-xs font-medium text-zinc-600">Até</label>
+                  <input
+                    type="date"
+                    value={recurEndDate}
+                    onChange={(e) => setRecurEndDate(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-zinc-600">Dias da semana</p>
+                <div className="flex flex-wrap gap-2">
+                  {WEEKDAY_SHORT.map((label, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => toggleRecurDay(i)}
+                      className={`rounded-full border px-3 py-1 text-xs ${
+                        recurDays.includes(i)
+                          ? "border-accent bg-accent/10 text-accent"
+                          : "border-zinc-300 text-zinc-600"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <label className="text-xs font-medium text-zinc-600">Das</label>
+                  <input
+                    type="time"
+                    value={recurStartTime}
+                    onChange={(e) => setRecurStartTime(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <label className="text-xs font-medium text-zinc-600">Às</label>
+                  <input
+                    type="time"
+                    value={recurEndTime}
+                    onChange={(e) => setRecurEndTime(e.target.value)}
+                    className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              <div className="min-w-0 flex-1 space-y-1">
+                <label className="text-xs font-medium text-zinc-600">Início</label>
+                <input
+                  type="datetime-local"
+                  value={blockStart}
+                  onChange={(e) => setBlockStart(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+              </div>
+              <div className="min-w-0 flex-1 space-y-1">
+                <label className="text-xs font-medium text-zinc-600">Fim</label>
+                <input
+                  type="datetime-local"
+                  value={blockEnd}
+                  onChange={(e) => setBlockEnd(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
+                />
+              </div>
             </div>
-            <div className="min-w-0 flex-1 space-y-1">
-              <label className="text-xs font-medium text-zinc-600">Fim</label>
-              <input
-                type="datetime-local"
-                value={blockEnd}
-                onChange={(e) => setBlockEnd(e.target.value)}
-                className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-accent"
-              />
-            </div>
-          </div>
+          )}
+
           <input
             value={blockReason}
             onChange={(e) => setBlockReason(e.target.value)}
@@ -753,8 +938,31 @@ export default function ConfiguracoesPage({
           <p className="text-sm text-zinc-500">Nenhum bloqueio cadastrado.</p>
         ) : (
           <ul className="space-y-2">
-            {blocks.map((b) =>
-              editingBlockId === b.id ? (
+            {blockGroups.map((group) =>
+              group.type === "batch" ? (
+                <li
+                  key={group.batchId}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-zinc-900">Recorrente · {formatBatchSummary(group.items)}</p>
+                    <p className="text-xs text-zinc-500">
+                      {group.items[0].professionalId
+                        ? professionals.find((p) => p.id === group.items[0].professionalId)?.name ?? "Profissional"
+                        : "Todo o negócio"}
+                      {group.items[0].reason ? ` · ${group.items[0].reason}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => removeBatch(group.batchId)}
+                    className="shrink-0 rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-100"
+                  >
+                    Remover todos
+                  </button>
+                </li>
+              ) : (() => {
+                const b = group.block;
+                return editingBlockId === b.id ? (
                 <li key={b.id} className="space-y-2 rounded-lg border border-accent bg-accent/5 px-3 py-3">
                   {professionals.length > 0 && (
                     <select
@@ -842,7 +1050,8 @@ export default function ConfiguracoesPage({
                     </button>
                   </div>
                 </li>
-              )
+              );
+              })()
             )}
           </ul>
         )}
