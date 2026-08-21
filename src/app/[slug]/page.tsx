@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState, useCallback } from "react";
 import { getReadableTextColor } from "@/lib/palettes";
+import { AppointmentReminderOptin } from "@/components/appointment-reminder-optin";
 
 type Professional = { id: string; name: string; photoUrl: string | null; specialties: string[] };
 type Service = {
@@ -53,6 +54,7 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdAppointmentId, setCreatedAppointmentId] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/public/business/${slug}`)
@@ -106,6 +108,7 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
       if (res.status === 409) loadSlots();
       return;
     }
+    setCreatedAppointmentId(data.appointment.id);
     setStep("done");
     setSubmitting(false);
   }
@@ -303,13 +306,16 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
         )}
 
         {step === "done" && (
-          <div className="rounded-xl border border-zinc-200 bg-white p-6 text-center">
-            <p className="text-lg font-semibold text-zinc-900">Agendamento enviado!</p>
-            <p className="mt-1 text-sm text-zinc-600">
-              {business.confirmationMode === "AUTOMATIC"
-                ? "Seu horário já está confirmado."
-                : "O salão vai confirmar seu horário em breve."}
-            </p>
+          <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-6 text-center">
+            <div>
+              <p className="text-lg font-semibold text-zinc-900">Agendamento enviado!</p>
+              <p className="mt-1 text-sm text-zinc-600">
+                {business.confirmationMode === "AUTOMATIC"
+                  ? "Seu horário já está confirmado."
+                  : "O salão vai confirmar seu horário em breve."}
+              </p>
+            </div>
+            {createdAppointmentId && <AppointmentReminderOptin appointmentId={createdAppointmentId} />}
           </div>
         )}
       </div>

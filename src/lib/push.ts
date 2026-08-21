@@ -9,6 +9,28 @@ if (vapidPublic && vapidPrivate && vapidSubject) {
   webPush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
 }
 
+// Envia push pra uma inscrição avulsa (usado no lembrete pro CLIENTE, que não
+// tem PushSubscription no banco — a inscrição vem junto com o próprio Appointment).
+export async function sendPushToSubscription(
+  sub: { endpoint: string; p256dh: string; auth: string },
+  payload: { title: string; body: string; url?: string }
+): Promise<{ expired: boolean }> {
+  if (!vapidPublic || !vapidPrivate || !vapidSubject) return { expired: false };
+  try {
+    await webPush.sendNotification(
+      { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+      JSON.stringify(payload)
+    );
+    return { expired: false };
+  } catch (error: unknown) {
+    const statusCode = (error as { statusCode?: number })?.statusCode;
+    if (statusCode !== 404 && statusCode !== 410) {
+      console.error("[push] falha ao enviar lembrete:", error);
+    }
+    return { expired: statusCode === 404 || statusCode === 410 };
+  }
+}
+
 // Notificação push de verdade (cai no celular mesmo com o app fechado). Se as
 // chaves VAPID não estiverem configuradas, simplesmente não faz nada — o resto
 // do app continua funcionando normal (badge/lista no painel já cobrem isso).
