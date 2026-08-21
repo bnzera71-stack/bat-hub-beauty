@@ -117,13 +117,13 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
 
   if (notFound) {
     return (
-      <div className="flex flex-1 items-center justify-center p-6 text-center text-zinc-600">
+      <div className="flex min-h-dvh items-center justify-center bg-zinc-50 p-6 text-center text-zinc-600">
         Página não encontrada.
       </div>
     );
   }
   if (!business) {
-    return <div className="flex flex-1 items-center justify-center p-6 text-zinc-500">Carregando...</div>;
+    return <div className="flex min-h-dvh items-center justify-center bg-zinc-50 p-6 text-zinc-500">Carregando...</div>;
   }
 
   const eligibleProfessionals = selectedService
@@ -131,7 +131,10 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
     : [];
 
   return (
-    <div style={{ ["--biz-color" as string]: business.primaryColor }} className="mx-auto max-w-lg pb-16">
+    <div
+      style={{ ["--biz-color" as string]: business.primaryColor }}
+      className="mx-auto min-h-dvh max-w-lg bg-zinc-50 pb-16"
+    >
       {business.isDemo && (
         <div className="bg-zinc-900 py-1.5 text-center text-xs font-medium text-white">
           Ambiente de demonstração
