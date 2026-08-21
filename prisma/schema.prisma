@@ -1,0 +1,390 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Tenant + acesso
+// ---------------------------------------------------------------------------
+
+model Business {
+  id                String           @id @default(cuid())
+  slug              String           @unique
+  name              String
+  description       String?
+  logoUrl           String?
+  coverUrl          String?
+  primaryColor      String           @default("#111111")
+  instagram         String?
+  whatsapp          String?
+  address           String?
+  timezone          String           @default("America/Sao_Paulo")
+  confirmationMode  ConfirmationMode @default(MANUAL)
+  minLeadMinutes    Int              @default(0)
+  maxLeadDays       Int              @default(60)
+  cancellationHours Int              @default(2)
+  status            BusinessStatus   @default(ACTIVE)
+  isDemo            Boolean          @default(false)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  memberships       Membership[]
+  professionals     Professional[]
+  services          Service[]
+  serviceCategories ServiceCategory[]
+  businessHours     BusinessHours[]
+  blockedPeriods    BlockedPeriod[]
+  customers         Customer[]
+  appointments      Appointment[]
+  subscription      Subscription?
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  feedback          Feedback[]
+
+  @@index([status])
+}
+
+enum BusinessStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum ConfirmationMode {
+  AUTOMATIC
+  MANUAL
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  phone        String?
+  isSuperAdmin Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships  Membership[]
+  professional Professional?
+  auditLogs    AuditLog[]
+}
+
+model Membership {
+  id         String         @id @default(cuid())
+  userId     String
+  businessId String
+  role       MembershipRole
+  createdAt  DateTime       @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+}
+
+enum MembershipRole {
+  OWNER
+  MANAGER
+  PROFESSIONAL
+}
+
+// ---------------------------------------------------------------------------
+// Catálogo
+// ---------------------------------------------------------------------------
+
+model ServiceCategory {
+  id         String @id @default(cuid())
+  businessId String
+  name       String
+  order      Int    @default(0)
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  services Service[]
+
+  @@index([businessId])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  businessId  String
+  categoryId  String?
+  name        String
+  description String?
+  photoUrl    String?
+  priceCents  Int
+  durationMin Int
+  bufferMin   Int      @default(0)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business      Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category      ServiceCategory?      @relation(fields: [categoryId], references: [id])
+  professionals ServiceProfessional[]
+  appointments  Appointment[]
+
+  @@index([businessId])
+}
+
+model Professional {
+  id          String   @id @default(cuid())
+  businessId  String
+  userId      String?  @unique
+  name        String
+  photoUrl    String?
+  specialties String[]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  business       Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user           User?                 @relation(fields: [userId], references: [id])
+  services       ServiceProfessional[]
+  hours          ProfessionalHours[]
+  blockedPeriods BlockedPeriod[]
+  appointments   Appointment[]
+
+  @@index([businessId])
+}
+
+model ServiceProfessional {
+  serviceId      String
+  professionalId String
+
+  service      Service      @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@id([serviceId, professionalId])
+  @@index([professionalId])
+}
+
+// ---------------------------------------------------------------------------
+// Horários e bloqueios
+// ---------------------------------------------------------------------------
+
+model BusinessHours {
+  id         String @id @default(cuid())
+  businessId String
+  weekday    Int // 0=domingo .. 6=sábado
+  startTime  String // "09:00"
+  endTime    String // "18:00"
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, weekday])
+}
+
+model ProfessionalHours {
+  id             String @id @default(cuid())
+  professionalId String
+  weekday        Int
+  startTime      String
+  endTime        String
+
+  professional Professional @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([professionalId, weekday])
+}
+
+model BlockedPeriod {
+  id             String   @id @default(cuid())
+  businessId     String
+  professionalId String?
+  startAt        DateTime
+  endAt          DateTime
+  reason         String?
+  createdAt      DateTime @default(now())
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  professional Professional? @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, startAt])
+  @@index([professionalId, startAt])
+}
+
+// ---------------------------------------------------------------------------
+// Clientes e agendamentos
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  phone      String
+  email      String?
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+
+  @@unique([businessId, phone])
+  @@index([businessId, name])
+}
+
+model Appointment {
+  id             String            @id @default(cuid())
+  businessId     String
+  customerId     String
+  professionalId String
+  serviceId      String
+  startAt        DateTime
+  endAt          DateTime
+  status         AppointmentStatus @default(PENDING)
+  source         AppointmentSource @default(PUBLIC)
+  note           String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  business      Business                   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  customer      Customer                   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  professional  Professional               @relation(fields: [professionalId], references: [id], onDelete: Cascade)
+  service       Service                    @relation(fields: [serviceId], references: [id])
+  statusHistory AppointmentStatusHistory[]
+
+  // A prevenção real de conflito é feita por um EXCLUDE CONSTRAINT no Postgres
+  // (professionalId + tsrange(startAt, endAt)), aplicado via migration SQL manual —
+  // ver prisma/migrations/manual/appointment_exclusion_constraint.sql.
+  @@index([businessId, startAt])
+  @@index([professionalId, startAt])
+  @@index([customerId])
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum AppointmentSource {
+  PUBLIC
+  MANUAL
+}
+
+model AppointmentStatusHistory {
+  id            String            @id @default(cuid())
+  appointmentId String
+  status        AppointmentStatus
+  changedBy     String? // userId, null se ação do cliente público
+  createdAt     DateTime          @default(now())
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId])
+}
+
+// ---------------------------------------------------------------------------
+// Assinatura / comercial
+// ---------------------------------------------------------------------------
+
+model Subscription {
+  id                     String             @id @default(cuid())
+  businessId             String             @unique
+  status                 SubscriptionStatus @default(TRIAL)
+  priceCents             Int
+  billingCycle           String             @default("monthly")
+  trialEndsAt            DateTime?
+  startedAt              DateTime?
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelledAt            DateTime?
+  providerCustomerId     String?
+  providerSubscriptionId String?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  SUSPENDED
+}
+
+// Linha única de configuração comercial — nunca hardcodar 59.90 na UI.
+model AppSettings {
+  id                Int      @id @default(1)
+  currentPriceCents Int      @default(5990)
+  trialDays         Int      @default(14)
+  // Ativação de assinatura MVP1 é manual (PIX direto pro dono da Bat Hub +
+  // liberação no Super Admin) — sem gateway automático ainda.
+  supportPixKey     String?
+  supportWhatsapp   String?
+  updatedAt         DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Notificações, auditoria, feedback
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id         String    @id @default(cuid())
+  businessId String
+  type       String
+  payload    Json
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, readAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  businessId String?
+  userId     String?
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  business Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?     @relation(fields: [userId], references: [id])
+
+  @@index([businessId, createdAt])
+}
+
+model Feedback {
+  id         String           @id @default(cuid())
+  businessId String
+  category   FeedbackCategory
+  message    String
+  status     FeedbackStatus   @default(NEW)
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+enum FeedbackCategory {
+  SUGGESTION
+  PROBLEM
+  IMPROVEMENT
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_REVIEW
+  PLANNED
+  IMPLEMENTED
+  DISCARDED
+}

@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --background: #fafafa;
+  --foreground: #18181b;
+  /* Paleta puxada da logo do Hub Beauty: rosé-dourado sobre ameixa escura. */
+  --accent: #b5567a;
+  --accent-soft: #e8a0a0;
+  --accent-foreground: #ffffff;
+  --panel-dark: #1b1420;
+  --panel-dark-foreground: #f3e8ec;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-panel-dark: var(--panel-dark);
+  --color-panel-dark-foreground: var(--panel-dark-foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
