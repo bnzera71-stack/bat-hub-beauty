@@ -85,6 +85,7 @@ export default function ConfiguracoesPage({
   const [serviceDuration, setServiceDuration] = useState("60");
   const [serviceProfessionalIds, setServiceProfessionalIds] = useState<string[]>([]);
   const [savingService, setSavingService] = useState(false);
+  const [serviceError, setServiceError] = useState<string | null>(null);
 
   const [categoryName, setCategoryName] = useState("");
   const [savingCategory, setSavingCategory] = useState(false);
@@ -100,6 +101,7 @@ export default function ConfiguracoesPage({
   const [editServiceProfessionalIds, setEditServiceProfessionalIds] = useState<string[]>([]);
   const [editServicePhotoUrl, setEditServicePhotoUrl] = useState<string | null>(null);
   const [savingServiceEdit, setSavingServiceEdit] = useState(false);
+  const [editServiceError, setEditServiceError] = useState<string | null>(null);
 
   const [blocks, setBlocks] = useState<BlockedPeriod[]>([]);
   const [blockProfessionalId, setBlockProfessionalId] = useState("");
@@ -159,6 +161,15 @@ export default function ConfiguracoesPage({
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    // Salão com uma profissional só (o mais comum) — evita o serviço nascer
+    // sem ninguém vinculado por esquecimento de marcar o checkbox, o que o
+    // deixa "invisível" pra sempre na página pública sem nenhum aviso.
+    if (professionals.length === 1) {
+      setServiceProfessionalIds((prev) => (prev.length === 0 ? [professionals[0].id] : prev));
+    }
+  }, [professionals]);
 
   async function saveBusiness() {
     if (!business) return;
@@ -259,7 +270,12 @@ export default function ConfiguracoesPage({
 
   async function addService(e: React.FormEvent) {
     e.preventDefault();
+    setServiceError(null);
     if (!serviceName.trim() || !servicePrice || !serviceDuration) return;
+    if (professionals.length > 0 && serviceProfessionalIds.length === 0) {
+      setServiceError("Selecione quem atende esse serviço — sem isso ele não aparece pra ninguém agendar.");
+      return;
+    }
     setSavingService(true);
     await fetch("/api/painel/services", {
       method: "POST",
@@ -330,14 +346,21 @@ export default function ConfiguracoesPage({
     setEditServiceDuration(String(s.durationMin));
     setEditServiceProfessionalIds(s.professionals.map((sp) => sp.professional.id));
     setEditServicePhotoUrl(s.photoUrl);
+    setEditServiceError(null);
   }
 
   function cancelEditService() {
     setEditingServiceId(null);
+    setEditServiceError(null);
   }
 
   async function saveEditService(id: string) {
+    setEditServiceError(null);
     if (!editServiceName.trim() || !editServicePrice || !editServiceDuration) return;
+    if (professionals.length > 0 && editServiceProfessionalIds.length === 0) {
+      setEditServiceError("Selecione quem atende esse serviço — sem isso ele não aparece pra ninguém agendar.");
+      return;
+    }
     setSavingServiceEdit(true);
     await fetch(`/api/painel/services/${id}`, {
       method: "PATCH",
@@ -915,6 +938,7 @@ export default function ConfiguracoesPage({
             </div>
           )}
 
+          {serviceError && <p className="text-sm text-red-600">{serviceError}</p>}
           <button
             type="submit"
             disabled={savingService}
@@ -1014,6 +1038,7 @@ export default function ConfiguracoesPage({
                       ))}
                     </div>
                   )}
+                  {editServiceError && <p className="text-sm text-red-600">{editServiceError}</p>}
                   <div className="flex gap-2">
                     <button
                       onClick={() => saveEditService(s.id)}
@@ -1045,9 +1070,15 @@ export default function ConfiguracoesPage({
                         {formatBRL(s.priceCents)} · {s.durationMin}min
                       </p>
                       {s.description && <p className="mt-1 text-xs text-zinc-500">{s.description}</p>}
-                      <p className="mt-1 text-xs text-zinc-500">
-                        {s.professionals.map((sp) => sp.professional.name).join(", ") || "Sem profissional vinculado"}
-                      </p>
+                      {s.professionals.length === 0 ? (
+                        <p className="mt-1 text-xs font-medium text-red-600">
+                          Sem profissional vinculado — ninguém consegue agendar esse serviço. Edite e selecione quem atende.
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {s.professionals.map((sp) => sp.professional.name).join(", ")}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2 flex gap-2">
