@@ -185,7 +185,11 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
             )}
           </div>
         )}
-        <Link href={`/${slug}/agendamentos`} className="mt-2 inline-block text-xs text-zinc-400 underline">
+        <Link
+          href={`/${slug}/agendamentos`}
+          className="mt-3 inline-block rounded-full border px-3 py-1.5 text-sm font-medium"
+          style={{ borderColor: business.primaryColor, color: business.primaryColor }}
+        >
           Já tem agendamento? Ver ou cancelar
         </Link>
       </div>
@@ -365,7 +369,11 @@ export default function PublicBusinessPage({ params }: { params: Promise<{ slug:
               </p>
             </div>
             {createdAppointmentId && <AppointmentReminderOptin appointmentId={createdAppointmentId} />}
-            <Link href={`/${slug}/agendamentos`} className="inline-block text-xs text-zinc-400 underline">
+            <Link
+              href={`/${slug}/agendamentos`}
+              className="inline-block rounded-full border px-3 py-1.5 text-sm font-medium"
+              style={{ borderColor: business.primaryColor, color: business.primaryColor }}
+            >
               Precisar cancelar ou ver de novo, é só voltar aqui e buscar pelo telefone
             </Link>
           </div>
