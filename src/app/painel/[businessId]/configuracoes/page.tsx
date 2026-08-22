@@ -68,6 +68,7 @@ export default function ConfiguracoesPage({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [activeTab, setActiveTab] = useState<"geral" | "bloqueios">("geral");
   const [editingSlug, setEditingSlug] = useState(false);
   const [slugInput, setSlugInput] = useState("");
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -432,6 +433,23 @@ export default function ConfiguracoesPage({
         return;
       }
 
+      const targetLabel = blockProfessionalId
+        ? professionals.find((p) => p.id === blockProfessionalId)?.name ?? "profissional"
+        : "TODO O NEGÓCIO (ninguém consegue agendar nada nesses horários)";
+      const daysLabel = recurDays
+        .slice()
+        .sort()
+        .map((d) => WEEKDAY_SHORT[d])
+        .join(", ");
+      const confirmed = window.confirm(
+        `Confere antes de criar:\n\n` +
+          `${occurrences.length} bloqueio(s), toda(s) ${daysLabel}, das ${recurStartTime} às ${recurEndTime}, ` +
+          `de ${recurStartDate.split("-").reverse().join("/")} até ${recurEndDate.split("-").reverse().join("/")}.\n\n` +
+          `Afeta: ${targetLabel}.\n\n` +
+          `Confirmar?`
+      );
+      if (!confirmed) return;
+
       setSavingBlock(true);
       const res = await fetch("/api/painel/blocked-periods/recurring", {
         method: "POST",
@@ -610,6 +628,27 @@ export default function ConfiguracoesPage({
         </p>
       </div>
 
+      <div className="flex gap-2 border-b border-zinc-200">
+        <button
+          onClick={() => setActiveTab("geral")}
+          className={`border-b-2 px-1 pb-2 text-sm font-medium ${
+            activeTab === "geral" ? "border-accent text-accent" : "border-transparent text-zinc-500"
+          }`}
+        >
+          Geral
+        </button>
+        <button
+          onClick={() => setActiveTab("bloqueios")}
+          className={`border-b-2 px-1 pb-2 text-sm font-medium ${
+            activeTab === "bloqueios" ? "border-accent text-accent" : "border-transparent text-zinc-500"
+          }`}
+        >
+          Bloqueios e férias
+        </button>
+      </div>
+
+      {activeTab === "geral" && (
+      <>
       <section className="rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="mb-3 text-sm font-semibold text-zinc-900">Seu link de agendamento</h2>
         {!editingSlug ? (
@@ -1248,7 +1287,11 @@ export default function ConfiguracoesPage({
           Salvar horários
         </button>
       </section>
+      </>
+      )}
 
+      {activeTab === "bloqueios" && (
+      <>
       <section className="space-y-3 rounded-xl border border-zinc-200 bg-white p-4">
         <h2 className="text-sm font-semibold text-zinc-900">Bloqueios e férias</h2>
         <p className="text-xs text-zinc-500">
@@ -1500,6 +1543,8 @@ export default function ConfiguracoesPage({
           </ul>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }
