@@ -81,7 +81,7 @@ export default function MyAppointmentsPage({ params }: { params: Promise<{ slug:
   }
 
   return (
-    <div className="mx-auto min-h-dvh max-w-lg space-y-6 bg-zinc-50 px-5 py-8 pb-16">
+    <div className="mx-auto min-h-dvh w-full max-w-lg space-y-6 bg-zinc-50 px-5 py-8 pb-16">
       <div>
         <Link href={`/${slug}`} className="text-sm text-zinc-500 hover:text-zinc-700">
           ← Voltar
