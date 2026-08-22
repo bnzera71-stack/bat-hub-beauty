@@ -50,8 +50,5 @@ next-env.d.ts
 # Local Netlify folder
 .netlify
 
-# prints/screenshots deixados na pasta public pra eu ver - nunca vao pro deploy
-/public/print*.png
-/public/print*.jpg
-/public/screenshot*.png
-/public/screenshot*.jpg
+# prints/screenshots deixados aqui pra eu ver - fora de public/ pra nunca ir pro deploy
+/_prints-locais/
